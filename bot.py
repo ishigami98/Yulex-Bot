@@ -76,9 +76,8 @@ async def lifespan(app: FastAPI):
     await telegram_app.initialize()
     await telegram_app.start()
     
-    # Quitamos 'clean' para que no rompa por tipo de argumento
     await telegram_app.updater.start_polling(
-        drop_pending_updates=True, 
+        drop_pending_updates=True,
         bootstrap_retries=3
     )
     print("🚀 El bot de Telegram está escuchando de forma segura desde la nube...")
@@ -100,5 +99,9 @@ def index():
 
 # 🚨 ESTO ES LO QUE LE DICE A RENDER QUE MANTENGA EL PROCESO VIVO
 if __name__ == "__main__":
-    puerto = int(os.environ.get("PORT", 10000))
-    uvicorn.run("bot:app_web", host="0.0.0.0", port=puerto, log_level="info")
+    import uvicorn
+    import os
+    
+    # Render asigna el puerto dinámicamente en la variable de entorno PORT
+    puerto = int(os.environ.get("PORT", 8000))
+    uvicorn.run("bot:app", host="0.0.0.0", port=puerto)
