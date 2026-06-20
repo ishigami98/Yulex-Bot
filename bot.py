@@ -28,6 +28,9 @@ async def iniciar_bot():
 
     app = Application.builder().token(TOKEN).build()
     
+    # 🚨 EL TRUCO ANTI-CONFLICTO: Limpia cualquier webhook o sesión colgada antes de arrancar
+    await app.bot.delete_webhook(drop_pending_updates=True)
+    
     # Registro de Comandos Generales (Vienen de comandos/generales.py)
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
