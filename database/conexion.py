@@ -27,10 +27,18 @@ class FalsoCursor:
 
     def execute(self, query, params=None):
         if params:
+            # Reemplazo seguro de parámetros
             formated_params = tuple(f"'{p}'" if isinstance(p, str) else str(p) for p in params)
             query = query % formated_params
             
         query_limpia = " ".join(query.split())
+        
+        # 🚨 EL TRUCO: Si es un cambio de datos, le agregamos el COMMIT explícito en el mismo bloque SQL
+        if any(keyword in query_limpia.upper() for keyword in ["INSERT", "UPDATE", "DELETE", "CREATE"]):
+            if not query_limpia.rstrip().endswith(";"):
+                query_limpia += ";"
+            query_limpia += " COMMIT;"
+        
         url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
         payload = {"query": query_limpia}
         
@@ -39,25 +47,12 @@ class FalsoCursor:
             if response.status_code in [200, 201]:
                 self.resultados = response.json()
             else:
+                print(f"⚠️ Error Supabase: {response.status_code} - {response.text}")
                 self.resultados = []
-        except Exception:
+        except Exception as e:
+            print(f"❌ Error de red en execute_sql: {e}")
             self.resultados = []
         self.index = 0
-
-    def fetchone(self):
-        if self.resultados and self.index < len(self.resultados):
-            res = self.resultados[self.index]
-            self.index += 1
-            return tuple(res.values()) if isinstance(res, dict) else res
-        return None
-
-    def fetchall(self):
-        if self.resultados:
-            return [tuple(res.values()) if isinstance(res, dict) else res for res in self.resultados]
-        return []
-
-    def close(self):
-        pass
 
 def conectar_db():
     return FalsaConexion()
