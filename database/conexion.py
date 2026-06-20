@@ -26,10 +26,13 @@ class FalsoCursor:
         self.index = 0
 
     def execute(self, query, params=None):
-        self.resultados = None
+        self.resultados = None  # <--- ESTA LÍNEA ES LA CLAVE: Borra el caché antiguo
         if params:
-            # Escapamos correctamente los parámetros: strings llevan comillas, números van directos
-            formated_params = []
+            # Reemplazo seguro de parámetros
+            formated_params = tuple(f"'{p}'" if isinstance(p, str) else str(p) for p in params)
+            query = query % formated_params
+
+        # ... el resto de tu código de execute sigue igual
             for p in params:
                 if isinstance(p, str):
                     # Duplicamos comillas simples internas para evitar romper el SQL literal
@@ -134,11 +137,13 @@ def obtener_moneda():
 def obtener_o_crear_usuario(telegram_id, username):
     conn = conectar_db()
     cursor = conn.cursor()
-    # Cambiamos a esta query para asegurar que no cachee resultados previos
     cursor.execute("SELECT balance, ganadas, perdidas, pollos_ganados FROM usuarios WHERE telegram_id = %s", (telegram_id,))
     user = cursor.fetchone()
     
-    print(f"DEBUG: Datos leídos para {telegram_id}: {user}") # <--- ESTO ES NUEVO
+    # Esto aparecerá en los logs de Render cada vez que alguien use un comando
+    print(f"DEBUG: Usuario {telegram_id} tiene en BD: {user}")
+    
+    # ... si 'user' es None, el bot crea el usuario. Si 'user' tiene datos, los usa.
     
     # ... el resto sigue igual
     
