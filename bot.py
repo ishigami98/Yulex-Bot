@@ -29,11 +29,24 @@ async def lifespan(app: FastAPI):
         yield
         return
 
-    # Construir la app de Telegram
     telegram_app = Application.builder().token(TOKEN).build()
     
-    # Limpiar webhooks colgados antes de arrancar
+    # 1. Borramos webhook explícitamente primero
     await telegram_app.bot.delete_webhook(drop_pending_updates=True)
+
+    # === [Aquí van todos tus telegram_app.add_handler(...) tal cual los tienes] ===
+
+    # 2. Inicializamos forzando limpieza de conexiones colgadas
+    await telegram_app.initialize()
+    await telegram_app.start()
+    
+    # 3. Al iniciar el polling, le decimos a Telegram: "Yo soy el único dueño del bot ahora"
+    await telegram_app.updater.start_polling(
+        drop_pending_updates=True, 
+        bootstrap_retries=3,
+        clean=True # Esto barre cualquier cola vieja que cause el Conflict
+    )
+    print("🚀 El bot de Telegram está escuchando de forma segura desde la nube...")
 
     # === HANDLERS GENERALES ===
     telegram_app.add_handler(CommandHandler("start", start))
