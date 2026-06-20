@@ -77,3 +77,8 @@ app_web = FastAPI(lifespan=lifespan)
 @app_web.get("/")
 def index():
     return {"status": "bot_vivo_y_camuflado"}
+
+# 🚨 ESTO ES LO QUE LE DICE A RENDER QUE MANTENGA EL PROCESO VIVO
+if __name__ == "__main__":
+    puerto = int(os.environ.get("PORT", 10000))
+    uvicorn.run("bot:app_web", host="0.0.0.0", port=puerto, log_level="info")
