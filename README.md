@@ -1,5 +1,5 @@
-```python
-readme_content = """# 🎰 CasinoBot (Yulex-Bot)
+```text
+🎰 Yulex-Bot
 
 ¡Un bot de economía y entretenimiento para grupos de Telegram completamente modular, seguro y optimizado para desplegarse gratis en Render y Supabase!
 
@@ -16,9 +16,6 @@ readme_content = """# 🎰 CasinoBot (Yulex-Bot)
 ```
 
 ```text
-README.md generado con éxito.
-
-```text
 ├── comandos/
 │   ├── admin.py       # Comandos administrativos y de moderación
 │   ├── generales.py   # Comandos básicos, perfiles y utilidades
@@ -28,7 +25,6 @@ README.md generado con éxito.
 ├── bot.py             # Archivo principal (FastAPI + Inicializador del Bot)
 ├── requirements.txt   # Dependencias del proyecto
 └── README.md          # Documentación del repositorio
-
 ```
 
 ## 🛠️ Variables de Entorno Requeridas
