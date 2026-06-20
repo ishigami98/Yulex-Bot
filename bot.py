@@ -61,7 +61,17 @@ async def correr_polling_en_fondo():
     await app.initialize()
     await app.start()
     await app.updater.start_polling(drop_pending_updates=True)
+    
+    print("🚀 El bot de Telegram está escuchando de forma segura desde la nube...")
+    
+    # Inicializa el bot de manera asíncrona sin bloquear a FastAPI
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling(drop_pending_updates=True)
 
+    # 🚨 MANTENER AL BOT DESPIERTO EN SEGUNDO PLANO INFINITAMENTE
+    while True:
+        await asyncio.sleep(3600)  # Duerme una hora y repite el ciclo para no gastar CPU
 # 🕒 Evento de inicio de FastAPI corregido
 @app_web.on_event("startup")
 async def startup_event():
