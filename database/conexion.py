@@ -133,8 +133,12 @@ def obtener_moneda():
 def obtener_o_crear_usuario(telegram_id, username):
     conn = conectar_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT balance, ganadas, perdidas, pollos_ganados FROM usuarios WHERE telegram_id = %s", (telegram_id,))
+    cursor.execute("SELECT balance, ganadas, perdidas, pollos_ganados FROM usuarios WHERE telegram_id = %s LIMIT 1", (telegram_id,))
     user = cursor.fetchone()
+    
+    print(f"DEBUG: Datos leídos para {telegram_id}: {user}") # <--- ESTO ES NUEVO
+    
+    # ... el resto sigue igual
     
     username_limpio = username.replace("@", "").lower() if username else f"user_{telegram_id}"
     
