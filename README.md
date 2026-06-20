@@ -11,7 +11,6 @@
 - **☁️ Listo para la Capa Gratis (Render/Koyeb):** Integra un microservidor web con **FastAPI** y **Uvicorn** para responder a los pings de salud (*health checks*) de las plataformas, manteniendo el bot activo 24/7 sin planes de pago.
 
 ## 📂 Estructura del Proyecto
-```text
 ├── comandos/
 │   ├── admin.py       # Comandos administrativos y de moderación
 │   ├── generales.py   # Comandos básicos, perfiles y utilidades
@@ -21,7 +20,6 @@
 ├── bot.py             # Archivo principal (FastAPI + Inicializador del Bot)
 ├── requirements.txt   # Dependencias del proyecto
 └── README.md          # Documentación del repositorio
-```
 
 ## 🛠️ Variables de Entorno Requeridas
 
