@@ -27,13 +27,12 @@ class FalsoCursor:
 
     def execute(self, query, params=None):
         if params:
-            # Reemplazo seguro de parámetros
+            # Reemplazo seguro de parámetros simulando el comportamiento posicional (%s)
             formated_params = tuple(f"'{p}'" if isinstance(p, str) else str(p) for p in params)
             query = query % formated_params
             
         query_limpia = " ".join(query.split())
         
-        # 🚨 ELIMINAMOS EL BLOQUE QUE AGREGABA EL "COMMIT;" MANUAL
         if not query_limpia.rstrip().endswith(";"):
             query_limpia += ";"
         
@@ -50,7 +49,35 @@ class FalsoCursor:
         except Exception as e:
             print(f"❌ Error de red en execute_sql: {e}")
             self.resultados = []
+        
         self.index = 0
+
+    # 🛠️ AGREGAMOS FETCHONE (Devuelve la fila actual mapeada como tupla o None)
+    def fetchone(self):
+        if not self.resultados or self.index >= len(self.resultados):
+            return None
+        fila = self.resultados[self.index]
+        self.index += 1
+        
+        # Si la respuesta de Supabase es un diccionario, convertimos sus valores a una tupla ordenada
+        if isinstance(fila, dict):
+            return tuple(fila.values())
+        return fila if isinstance(fila, tuple) else (fila,)
+
+    # 🛠️ AGREGAMOS FETCHALL (Por si algún leaderboard o comando top lo usa)
+    def fetchall(self):
+        if not self.resultados:
+            return []
+        output = []
+        for fila in self.resultados[self.index:]:
+            if isinstance(fila, dict):
+                output.append(tuple(fila.values()))
+            elif isinstance(fila, tuple):
+                output.append(fila)
+            else:
+                output.append((fila,))
+        self.index = len(self.resultados)
+        return output
 
 def conectar_db():
     return FalsaConexion()
