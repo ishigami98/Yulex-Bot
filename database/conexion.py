@@ -26,6 +26,7 @@ class FalsoCursor:
         self.index = 0
 
     def execute(self, query, params=None):
+        self.resultados = None
         if params:
             # Escapamos correctamente los parámetros: strings llevan comillas, números van directos
             formated_params = []
@@ -133,7 +134,8 @@ def obtener_moneda():
 def obtener_o_crear_usuario(telegram_id, username):
     conn = conectar_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT balance, ganadas, perdidas, pollos_ganados FROM usuarios WHERE telegram_id = %s LIMIT 1", (telegram_id,))
+    # Cambiamos a esta query para asegurar que no cachee resultados previos
+    cursor.execute("SELECT balance, ganadas, perdidas, pollos_ganados FROM usuarios WHERE telegram_id = %s", (telegram_id,))
     user = cursor.fetchone()
     
     print(f"DEBUG: Datos leídos para {telegram_id}: {user}") # <--- ESTO ES NUEVO

@@ -5,17 +5,28 @@ from database.conexion import obtener_o_crear_usuario, obtener_moneda, actualiza
 
 async def trabajar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    obtener_o_crear_usuario(user_id, update.effective_user.username)
-    m = obtener_moneda()
-    trabajos = [
-        ("Trabajaste picando código en Python", random.randint(300, 600)),
-        ("Atendiste un McDonald's a las 3 AM", random.randint(50, 150)),
-        ("Le lavaste el coche al administrador del grupo", random.randint(200, 400)),
-        ("Hiciste streaming pero solo te vio tu mamá", random.randint(5, 30))
-    ]
-    accion, paga = random.choice(trabajos)
+    # Obtenemos los datos actuales
+    conn = conectar_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT ultima_trabajo FROM usuarios WHERE telegram_id = %s", (user_id,))
+    fila = cursor.fetchone()
+    
+    ahora = datetime.datetime.now()
+    if fila and fila[0]:
+        ultima_vez = datetime.datetime.fromisoformat(fila[0])
+        if (ahora - ultima_vez).total_seconds() < 300: # 300 segundos = 5 minutos
+            await update.message.reply_text("⏳ Espera 5 minutos para volver a trabajar.")
+            return
+
+    # Si pasa el tiempo, ejecuta el trabajo
+    paga = random.randint(300, 600)
     actualizar_saldo(user_id, paga, es_ganancia=True)
-    await update.message.reply_text(f"💼 {accion} y ganaste {m} {paga}.")
+    
+    # Guarda la nueva hora
+    cursor.execute("UPDATE usuarios SET ultima_trabajo = %s WHERE telegram_id = %s", (ahora.isoformat(), user_id))
+    conn.commit()
+    conn.close()
+    await update.message.reply_text(f"💼 Trabajaste y ganaste {paga}.")
 
 async def robar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
