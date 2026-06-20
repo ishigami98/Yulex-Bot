@@ -38,24 +38,24 @@ async def lifespan(app: FastAPI):
     telegram_app.add_handler(CommandHandler("start", start))
     telegram_app.add_handler(CommandHandler("help", help_command))
     telegram_app.add_handler(CommandHandler("perfil", perfil))
-    telegram_app.add_handler(CommandHandler("give", give_money))
+    telegram_app.add_handler(CommandHandler("give_money", give_money)) # <-- Corregido
     telegram_app.add_handler(CommandHandler("daily", daily))
-    telegram_app.add_handler(CommandHandler("top", leaderboard))
+    telegram_app.add_handler(CommandHandler("leaderboard", leaderboard)) # <-- Corregido
     telegram_app.add_handler(CommandHandler("cat", cat))
 
     # === HANDLERS DE JUEGOS ===
     telegram_app.add_handler(CommandHandler("trabajar", trabajar))
     telegram_app.add_handler(CommandHandler("robar", robar))
     telegram_app.add_handler(CommandHandler("ruleta", ruleta))
-    telegram_app.add_handler(CommandHandler("pollo", cock_fight))
+    telegram_app.add_handler(CommandHandler("cock_fight", cock_fight)) # <-- Corregido
     telegram_app.add_handler(CommandHandler("roll", roll))
 
     # === HANDLERS DE ADMINISTRACIÓN ===
-    telegram_app.add_handler(CommandHandler("setcurrency", set_currency))
-    telegram_app.add_handler(CommandHandler("addmoney", add_money))
-    telegram_app.add_handler(CommandHandler("removemoney", remove_money))
-    telegram_app.add_handler(CommandHandler("reseteconomy", reset_economy))
-    telegram_app.add_handler(CommandHandler("resetmoney", reset_money))
+    telegram_app.add_handler(CommandHandler("set_currency", set_currency)) # <-- Corregido
+    telegram_app.add_handler(CommandHandler("add_money", add_money)) # <-- Corregido
+    telegram_app.add_handler(CommandHandler("remove_money", remove_money)) # <-- Corregido
+    telegram_app.add_handler(CommandHandler("reset_economy", reset_economy)) # <-- Corregido
+    telegram_app.add_handler(CommandHandler("reset_money", reset_money)) # <-- Corregido
 
     # 2. Inicializar y arrancar el bot de forma limpia sin argumentos obsoletos
     await telegram_app.initialize()
