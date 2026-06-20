@@ -1,5 +1,4 @@
-```text
-🎰 Yulex-Bot
+## 🎰 Yulex-Bot
 
 ¡Un bot de economía y entretenimiento para grupos de Telegram completamente modular, seguro y optimizado para desplegarse gratis en Render y Supabase!
 
@@ -11,10 +10,7 @@
 - **🛡️ Conexión HTTP Segura (Anti-bloqueos):** Totalmente migrado a una arquitectura HTTP asíncrona mediante la API REST de Supabase, evitando bloqueos de puertos TCP (puerto 5432) en entornos restrictivos y nubes gratuitas.
 - **☁️ Listo para la Capa Gratis (Render/Koyeb):** Integra un microservidor web con **FastAPI** y **Uvicorn** para responder a los pings de salud (*health checks*) de las plataformas, manteniendo el bot activo 24/7 sin planes de pago.
 
-## 📂 Estructura del Proyecto (Modular)
-
-```
-
+## 📂 Estructura del Proyecto
 ```text
 ├── comandos/
 │   ├── admin.py       # Comandos administrativos y de moderación
