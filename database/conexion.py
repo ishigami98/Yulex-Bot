@@ -80,3 +80,24 @@ def actualizar_saldo(telegram_id, cantidad, es_ganancia=True):
     else:
         cursor.execute("UPDATE usuarios SET balance = balance - %s WHERE telegram_id = %s", (cantidad, telegram_id))
     conn.commit()
+    
+def inicializar_db():
+    try:
+        conn = conectar_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS usuarios (
+                telegram_id BIGINT PRIMARY KEY,
+                username TEXT,
+                balance INTEGER DEFAULT 500,
+                ganadas INTEGER DEFAULT 0,
+                perdidas INTEGER DEFAULT 0,
+                ultima_recarga TEXT,
+                pollos_ganados INTEGER DEFAULT 0
+            )
+        """)
+        conn.commit()
+        conn.close()
+        print("🔗 Conexión exitosa e inicializada con Supabase por HTTP!")
+    except Exception as e:
+        print(f"❌ Error al inicializar Supabase: {e}")
