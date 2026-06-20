@@ -95,13 +95,19 @@ async def daily(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     username = update.effective_user.username or update.effective_user.first_name
     obtener_o_crear_usuario(user_id, username)
+    
     conn = conectar_db()
     cursor = conn.cursor()
     cursor.execute("SELECT ultima_recarga FROM usuarios WHERE telegram_id = %s", (user_id,))
-    fecha_str = cursor.fetchone()[0]
+    
+    fila = cursor.fetchone()
     ahora = datetime.datetime.now()
-    if fecha_str:
+    
+    # Validamos que la fila exista y que el valor de la columna no sea None
+    if fila and fila[0] is not None:
+        fecha_str = fila[0]
         ultima_fecha = datetime.datetime.fromisoformat(fecha_str)
+        
         if (ahora - ultima_fecha).total_seconds() < 86400:
             tiempo_restante = 86400 - (ahora - ultima_fecha).total_seconds()
             horas = int(tiempo_restante // 3600)
@@ -109,11 +115,14 @@ async def daily(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"⏳ Ya reclamaste tu recompensa diaria. Vuelve en {horas}h y {minutos}m.")
             conn.close()
             return
-    monedas_gratis = random.randint(0, 500)
+
+    # Si llegó aquí es porque no ha reclamado o ya pasaron las 24 horas
+    monedas_gratis = random.randint(50, 500) # Cambiado a mínimo 50 para que siempre sume algo
     cursor.execute("UPDATE usuarios SET balance = balance + %s, ultima_recarga = %s WHERE telegram_id = %s", 
                    (monedas_gratis, ahora.isoformat(), user_id))
     conn.commit()
     conn.close()
+    
     m = obtener_moneda()
     await update.message.reply_text(f"🎁 ¡Bono Diario! Te tocaron {m} {monedas_gratis} aleatorias.")
 
