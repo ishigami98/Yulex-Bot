@@ -18,7 +18,6 @@ telegram_app = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global telegram_app
-    print("🔗 Conexión exitosa e inicializada con Supabase por HTTP!")
     
     # Inicializar la base de datos
     inicializar_db()
@@ -32,22 +31,8 @@ async def lifespan(app: FastAPI):
     # Construir la app de Telegram
     telegram_app = Application.builder().token(TOKEN).build()
     
-    # 1. Borramos webhook explícitamente primero
+    # 1. Borramos el webhook explícitamente primero
     await telegram_app.bot.delete_webhook(drop_pending_updates=True)
-
-    # === [Aquí van todos tus telegram_app.add_handler(...) tal cual los tienes] ===
-
-    # 2. Inicializamos forzando limpieza de conexiones colgadas
-    await telegram_app.initialize()
-    await telegram_app.start()
-    
-    # 3. Al iniciar el polling, le decimos a Telegram: "Yo soy el único dueño del bot ahora"
-    await telegram_app.updater.start_polling(
-        drop_pending_updates=True, 
-        bootstrap_retries=3,
-        clean=True # Esto barre cualquier cola vieja que cause el Conflict
-    )
-    print("🚀 El bot de Telegram está escuchando de forma segura desde la nube...")
 
     # === HANDLERS GENERALES ===
     telegram_app.add_handler(CommandHandler("start", start))
@@ -72,7 +57,7 @@ async def lifespan(app: FastAPI):
     telegram_app.add_handler(CommandHandler("reseteconomy", reset_economy))
     telegram_app.add_handler(CommandHandler("resetmoney", reset_money))
 
-    # Inicializar y arrancar el bot de forma nativa
+    # 2. Inicializar y arrancar el bot de forma limpia sin argumentos obsoletos
     await telegram_app.initialize()
     await telegram_app.start()
     
@@ -82,26 +67,23 @@ async def lifespan(app: FastAPI):
     )
     print("🚀 El bot de Telegram está escuchando de forma segura desde la nube...")
     
-    yield  # Aquí es donde FastAPI se queda corriendo feliz
+    yield  # Aquí es donde FastAPI se mantiene corriendo en el puerto asignado
     
-    # Código de apagado cuando Render detenga el servicio
+    # Código de apagado ordenado cuando Render detenga o reinicie el contenedor
     print("🛑 Apagando el bot de Telegram...")
     await telegram_app.updater.stop()
     await telegram_app.stop()
     await telegram_app.shutdown()
 
-# La mini app web usando el ciclo moderno lifespan
-app_web = FastAPI(lifespan=lifespan)
+# Cambiamos el nombre de la variable a 'app' para que coincida perfectamente con Uvicorn
+app = FastAPI(lifespan=lifespan)
 
-@app_web.get("/")
+@app.get("/")
 def index():
     return {"status": "bot_vivo_y_camuflado"}
 
 # 🚨 ESTO ES LO QUE LE DICE A RENDER QUE MANTENGA EL PROCESO VIVO
 if __name__ == "__main__":
-    import uvicorn
-    import os
-    
     # Render asigna el puerto dinámicamente en la variable de entorno PORT
     puerto = int(os.environ.get("PORT", 8000))
     uvicorn.run("bot:app", host="0.0.0.0", port=puerto)
