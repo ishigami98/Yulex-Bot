@@ -3,6 +3,7 @@ import asyncio
 from telegram.ext import Application, CommandHandler
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+import uvicorn
 
 # Importamos todo desde tus carpetas modulares
 from database.conexion import inicializar_db
