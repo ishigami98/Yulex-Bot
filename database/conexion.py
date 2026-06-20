@@ -33,11 +33,9 @@ class FalsoCursor:
             
         query_limpia = " ".join(query.split())
         
-        # 🚨 EL TRUCO: Si es un cambio de datos, le agregamos el COMMIT explícito en el mismo bloque SQL
-        if any(keyword in query_limpia.upper() for keyword in ["INSERT", "UPDATE", "DELETE", "CREATE"]):
-            if not query_limpia.rstrip().endswith(";"):
-                query_limpia += ";"
-            query_limpia += " COMMIT;"
+        # 🚨 ELIMINAMOS EL BLOQUE QUE AGREGABA EL "COMMIT;" MANUAL
+        if not query_limpia.rstrip().endswith(";"):
+            query_limpia += ";"
         
         url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
         payload = {"query": query_limpia}
