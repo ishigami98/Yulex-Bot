@@ -29,6 +29,7 @@ async def lifespan(app: FastAPI):
         yield
         return
 
+    # Construir la app de Telegram
     telegram_app = Application.builder().token(TOKEN).build()
     
     # 1. Borramos webhook explícitamente primero
@@ -74,7 +75,12 @@ async def lifespan(app: FastAPI):
     # Inicializar y arrancar el bot de forma nativa
     await telegram_app.initialize()
     await telegram_app.start()
-    await telegram_app.updater.start_polling(drop_pending_updates=True)
+    
+    # Quitamos 'clean' para que no rompa por tipo de argumento
+    await telegram_app.updater.start_polling(
+        drop_pending_updates=True, 
+        bootstrap_retries=3
+    )
     print("🚀 El bot de Telegram está escuchando de forma segura desde la nube...")
     
     yield  # Aquí es donde FastAPI se queda corriendo feliz
