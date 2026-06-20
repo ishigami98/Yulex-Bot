@@ -27,9 +27,21 @@ class FalsoCursor:
 
     def execute(self, query, params=None):
         if params:
-            # Reemplazo seguro de parámetros simulando el comportamiento posicional (%s)
-            formated_params = tuple(f"'{p}'" if isinstance(p, str) else str(p) for p in params)
-            query = query % formated_params
+            # Escapamos correctamente los parámetros: strings llevan comillas, números van directos
+            formated_params = []
+            for p in params:
+                if isinstance(p, str):
+                    # Duplicamos comillas simples internas para evitar romper el SQL literal
+                    p_escaped = p.replace("'", "''")
+                    formated_params.append(f"'{p_escaped}'")
+                elif p is None:
+                    formated_params.append("NULL")
+                else:
+                    formated_params.append(str(p))
+            
+            # Reemplaza de forma segura cada %s uno por uno
+            for param in formated_params:
+                query = query.replace("%s", param, 1)
             
         query_limpia = " ".join(query.split())
         
@@ -52,19 +64,17 @@ class FalsoCursor:
         
         self.index = 0
 
-    # 🛠️ AGREGAMOS FETCHONE (Devuelve la fila actual mapeada como tupla o None)
+    # 🛠️ Mapeo robusto: extrae los valores respetando el orden original del JSON/Dict
     def fetchone(self):
         if not self.resultados or self.index >= len(self.resultados):
             return None
         fila = self.resultados[self.index]
         self.index += 1
         
-        # Si la respuesta de Supabase es un diccionario, convertimos sus valores a una tupla ordenada
         if isinstance(fila, dict):
             return tuple(fila.values())
         return fila if isinstance(fila, tuple) else (fila,)
 
-    # 🛠️ AGREGAMOS FETCHALL (Por si algún leaderboard o comando top lo usa)
     def fetchall(self):
         if not self.resultados:
             return []

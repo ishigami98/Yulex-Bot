@@ -82,7 +82,7 @@ app = FastAPI(lifespan=lifespan)
 def index():
     return {"status": "bot_vivo_y_camuflado"}
 
-# 🚨 ESTO ES LO QUE LE DICE A RENDER QUE MANTENGA EL PROCESO VIVO
+# 🚨 ESTO ES LO QUE LE DICE A RENDER QUE MANTENGA EL PROCESO VIVO.
 if __name__ == "__main__":
     # Render asigna el puerto dinámicamente en la variable de entorno PORT
     puerto = int(os.environ.get("PORT", 8000))
