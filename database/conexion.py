@@ -29,8 +29,13 @@ class FalsoCursor:
         self.index = 0
 
     def execute(self, query, params=None):
-        self.resultados = None
         if params:
+            # Reemplazamos %s por los valores para el log
+            query_debug = query
+            for p in params:
+                query_debug = query_debug.replace("%s", f"'{p}'", 1)
+            print(f"DEBUG SQL: {query_debug}")
+            
             formated_params = tuple(f"'{p}'" if isinstance(p, str) else str(p) for p in params)
             query = query % formated_params
             
@@ -40,11 +45,13 @@ class FalsoCursor:
         
         url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
         payload = {"query": query_limpia}
-        try:
-            response = httpx.post(url, json=payload, headers=self.headers, timeout=15.0)
-            self.resultados = response.json() if response.status_code in [200, 201] else []
-        except Exception:
-            self.resultados = []
+        
+        response = httpx.post(url, json=payload, headers=self.headers, timeout=15.0)
+        
+        # AQUÍ ESTÁ EL CAMBIO: Imprimimos la respuesta completa
+        print(f"DEBUG RESPONSE: Status={response.status_code}, Body={response.text}")
+        
+        self.resultados = response.json() if response.status_code in [200, 201] else []
         self.index = 0
 
     def fetchone(self):
