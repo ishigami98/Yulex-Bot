@@ -60,6 +60,9 @@ class FalsoCursor:
 def conectar_db():
     return FalsaConexion()
 
+def obtener_moneda():
+    return "💰"  # O el emoji o nombre de moneda que utilices
+
 def obtener_o_crear_usuario(telegram_id, username):
     conn = conectar_db()
     cursor = conn.cursor()
