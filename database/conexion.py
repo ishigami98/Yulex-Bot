@@ -9,16 +9,17 @@ class FalsaConexion:
         self.headers = {
             "apikey": SUPABASE_KEY,
             "Authorization": f"Bearer {SUPABASE_KEY}",
-            "Content-Type": "application/json",
-            "Prefer": "return=representation"
+            "Content-Type": "application/json"
         }
-        self.cursor_instance = FalsoCursor(self.headers)
         
     def cursor(self):
-        return self.cursor_instance
+        return FalsoCursor(self.headers)
         
     def commit(self):
-        # Aquí es donde realizas el POST real a Supabase si no lo hiciste en el execute
+        pass
+        
+    def close(self):
+        # Este método ahora existe y no dará error
         pass
 
 class FalsoCursor:
