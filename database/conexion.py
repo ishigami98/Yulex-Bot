@@ -9,13 +9,16 @@ class FalsaConexion:
         self.headers = {
             "apikey": SUPABASE_KEY,
             "Authorization": f"Bearer {SUPABASE_KEY}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Prefer": "return=representation"
         }
+        self.cursor_instance = FalsoCursor(self.headers)
+        
     def cursor(self):
-        return FalsoCursor(self.headers)
+        return self.cursor_instance
+        
     def commit(self):
-        pass
-    def close(self):
+        # Aquí es donde realizas el POST real a Supabase si no lo hiciste en el execute
         pass
 
 class FalsoCursor:
@@ -80,4 +83,7 @@ def actualizar_saldo(telegram_id, cantidad, es_ganancia=True):
     conn = conectar_db()
     cursor = conn.cursor()
     op = "+" if es_ganancia else "-"
-    cursor.execute(f"UPDATE usuarios SET balance = balance {op} %s WHERE telegram_id = %s", (cantidad, telegram_id))
+    # Usamos una consulta que no intenta devolver filas, solo ejecuta el cambio
+    query = f"UPDATE usuarios SET balance = balance {op} %s WHERE telegram_id = %s"
+    cursor.execute(query, (cantidad, telegram_id))
+    print(f"DEBUG: Ejecutado {query} con {cantidad}, {telegram_id}")
