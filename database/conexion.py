@@ -29,8 +29,8 @@ class FalsoCursor:
         self.index = 0
 
     def execute(self, query, params=None):
+        # 1. Procesamiento de los parámetros para el log
         if params:
-            # Reemplazamos %s por los valores para el log
             query_debug = query
             for p in params:
                 query_debug = query_debug.replace("%s", f"'{p}'", 1)
@@ -38,20 +38,33 @@ class FalsoCursor:
             
             formated_params = tuple(f"'{p}'" if isinstance(p, str) else str(p) for p in params)
             query = query % formated_params
+        else:
+            print(f"DEBUG SQL: {query}")
             
         query_limpia = " ".join(query.split())
         if not query_limpia.rstrip().endswith(";"):
             query_limpia += ";"
         
+        # 2. Configuración de la petición
         url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
         payload = {"query": query_limpia}
         
+        # 3. Envío y registro de la respuesta (AQUÍ ESTÁ LA CLAVE)
+        print(f"DEBUG: Enviando a {url} con payload {payload}")
         response = httpx.post(url, json=payload, headers=self.headers, timeout=15.0)
         
-        # AQUÍ ESTÁ EL CAMBIO: Imprimimos la respuesta completa
+        # Este print es el que nos dará la respuesta final de Supabase
         print(f"DEBUG RESPONSE: Status={response.status_code}, Body={response.text}")
         
-        self.resultados = response.json() if response.status_code in [200, 201] else []
+        # 4. Manejo de resultados
+        if response.status_code in [200, 201]:
+            try:
+                self.resultados = response.json()
+            except:
+                self.resultados = []
+        else:
+            self.resultados = []
+            
         self.index = 0
 
     def fetchone(self):
