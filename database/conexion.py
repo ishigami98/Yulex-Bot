@@ -27,11 +27,8 @@ class FalsoCursor:
     def execute(self, query, params=None):
         self.resultados = None
         if params:
-            formated_params = []
-            for p in params:
-                val = f"'{p}'" if isinstance(p, str) else str(p)
-                formated_params.append(val)
-            query = query % tuple(formated_params)
+            formated_params = tuple(f"'{p}'" if isinstance(p, str) else str(p) for p in params)
+            query = query % formated_params
             
         query_limpia = " ".join(query.split())
         if not query_limpia.rstrip().endswith(";"):
@@ -39,13 +36,9 @@ class FalsoCursor:
         
         url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
         payload = {"query": query_limpia}
-        
         try:
             response = httpx.post(url, json=payload, headers=self.headers, timeout=15.0)
-            if response.status_code in [200, 201]:
-                self.resultados = response.json()
-            else:
-                self.resultados = []
+            self.resultados = response.json() if response.status_code in [200, 201] else []
         except Exception:
             self.resultados = []
         self.index = 0
@@ -61,46 +54,30 @@ def conectar_db():
     return FalsaConexion()
 
 def obtener_moneda():
-    return "💰"  # O el emoji o nombre de moneda que utilices
+    return "💰"
+
+def inicializar_db():
+    print("Base de datos inicializada (modo HTTP)")
 
 def obtener_o_crear_usuario(telegram_id, username):
     conn = conectar_db()
     cursor = conn.cursor()
     cursor.execute("SELECT balance, ganadas, perdidas, pollos_ganados FROM usuarios WHERE telegram_id = %s", (telegram_id,))
     user = cursor.fetchone()
-    
     if not user:
         cursor.execute("INSERT INTO usuarios (telegram_id, username, balance) VALUES (%s, %s, 500)", (telegram_id, username))
-        conn.commit()
         return {"balance": 500, "ganadas": 0, "perdidas": 0, "pollos": 0}
     return {"balance": user[0], "ganadas": user[1], "perdidas": user[2], "pollos": user[3]}
+
+def obtener_id_por_username(username):
+    conn = conectar_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT telegram_id FROM usuarios WHERE username = %s", (username.replace("@", "").lower(),))
+    res = cursor.fetchone()
+    return res[0] if res else None
 
 def actualizar_saldo(telegram_id, cantidad, es_ganancia=True):
     conn = conectar_db()
     cursor = conn.cursor()
-    if es_ganancia:
-        cursor.execute("UPDATE usuarios SET balance = balance + %s WHERE telegram_id = %s", (cantidad, telegram_id))
-    else:
-        cursor.execute("UPDATE usuarios SET balance = balance - %s WHERE telegram_id = %s", (cantidad, telegram_id))
-    conn.commit()
-    
-def inicializar_db():
-    try:
-        conn = conectar_db()
-        cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS usuarios (
-                telegram_id BIGINT PRIMARY KEY,
-                username TEXT,
-                balance INTEGER DEFAULT 500,
-                ganadas INTEGER DEFAULT 0,
-                perdidas INTEGER DEFAULT 0,
-                ultima_recarga TEXT,
-                pollos_ganados INTEGER DEFAULT 0
-            )
-        """)
-        conn.commit()
-        conn.close()
-        print("🔗 Conexión exitosa e inicializada con Supabase por HTTP!")
-    except Exception as e:
-        print(f"❌ Error al inicializar Supabase: {e}")
+    op = "+" if es_ganancia else "-"
+    cursor.execute(f"UPDATE usuarios SET balance = balance {op} %s WHERE telegram_id = %s", (cantidad, telegram_id))
