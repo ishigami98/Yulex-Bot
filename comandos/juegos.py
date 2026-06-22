@@ -40,7 +40,7 @@ async def procesar_apuesta(update_obj, context, monto_str, color_usuario):
 
 async def trabajar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    res = supabase.table("usuarios").select("ultima_trabajo").eq("telegram_id", user_id).execute()
+    res = await supabase.table("usuarios").select("ultima_trabajo").eq("telegram_id", user_id).execute()
     
     ahora = datetime.datetime.now()
     if res.data and res.data[0].get("ultima_trabajo"):

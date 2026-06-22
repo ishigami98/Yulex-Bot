@@ -1,11 +1,14 @@
 import os
 from postgrest import AsyncPostgrestClient
 
+# Verifica que estas variables existan en tu panel de Render
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-url = f"{SUPABASE_URL}/rest/v1"
 
-# Cliente asíncrono global
+if not SUPABASE_URL:
+    raise ValueError("¡Falta la variable de entorno SUPABASE_URL!")
+
+url = f"{SUPABASE_URL}/rest/v1"
 supabase = AsyncPostgrestClient(url, headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"})
 
 def inicializar_db():

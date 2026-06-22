@@ -41,7 +41,7 @@ async def add_money(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target_id = obtener_id_por_username(target_user)
     
     if target_id:
-        res = supabase.table("usuarios").select("balance").eq("telegram_id", target_id).execute()
+        res = await supabase.table("usuarios").select("balance").eq("telegram_id", target_id).execute()
         nuevo_saldo = res.data[0]["balance"] + cantidad
         supabase.table("usuarios").update({"balance": nuevo_saldo}).eq("telegram_id", target_id).execute()
         await update.message.reply_text(f"✅ Se añadieron {cantidad} al saldo de {target_user}.")
@@ -59,7 +59,7 @@ async def remove_money(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target_id = obtener_id_por_username(target_user)
     
     if target_id:
-        res = supabase.table("usuarios").select("balance").eq("telegram_id", target_id).execute()
+        res = await supabase.table("usuarios").select("balance").eq("telegram_id", target_id).execute()
         nuevo_saldo = max(0, res.data[0]["balance"] - cantidad)
         supabase.table("usuarios").update({"balance": nuevo_saldo}).eq("telegram_id", target_id).execute()
         await update.message.reply_text(f"📉 Se retiraron {cantidad} del saldo de {target_user}.")
@@ -70,7 +70,7 @@ async def reset_economy(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     # Reset masivo a todos los usuarios
-    supabase.table("usuarios").update({"balance": 0}).neq("telegram_id", 0).execute()
+    await supabase.table("usuarios").update({"balance": 0}).neq("telegram_id", 0).execute()
     await update.message.reply_text("🚨 **LA ECONOMÍA HA SIDO REINICIADA**. El saldo de todos se fijó en 0.")
 
 async def reset_money(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -84,7 +84,7 @@ async def reset_money(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
             
     # Reset propio si no es admin o no hay args
-    supabase.table("usuarios").update({"balance": 500}).eq("telegram_id", user_id).execute()
+    await supabase.table("usuarios").update({"balance": 500}).eq("telegram_id", user_id).execute()
     await update.message.reply_text("🔄 Has reiniciado tu dinero al balance inicial (500).")
     
 async def give_money(update: Update, context: ContextTypes.DEFAULT_TYPE):
