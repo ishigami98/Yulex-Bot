@@ -4,9 +4,13 @@ from postgrest import AsyncPostgrestClient
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
+
 # La URL de Postgrest es la API REST, no la URL raíz de Supabase
 url = f"{SUPABASE_URL}/rest/v1"
-
+# Si lo anterior falla, intenta esto (pasando solo la URL)
+# Y luego asignamos el token/headers después, si es posible:
+supabase = AsyncPostgrestClient(base_url=url)
+supabase.auth(token=SUPABASE_KEY)
 # Instanciamos usando nombres de argumentos explícitos para evitar el TypeError
 # base_url y token son los nombres que espera la clase
 supabase = AsyncPostgrestClient(base_url=url, token=SUPABASE_KEY)
