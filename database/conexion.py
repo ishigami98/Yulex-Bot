@@ -1,45 +1,68 @@
 import os
-from postgrest import AsyncPostgrestClient
+import httpx
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-# 1. Definimos la URL de la API REST
-url = f"{SUPABASE_URL}/rest/v1"
-
-# 2. Definimos los headers necesarios para la autenticación
-headers = {
+BASE_URL = f"{SUPABASE_URL}/rest/v1"
+HEADERS = {
     "apikey": SUPABASE_KEY,
-    "Authorization": f"Bearer {SUPABASE_KEY}"
+    "Authorization": f"Bearer {SUPABASE_KEY}",
+    "Content-Type": "application/json",
+    "Prefer": "return=representation"
 }
 
-# 3. Inicializamos el cliente. 
-# En postgrest-py 0.19.0+, se pasa la URL y los headers.
-supabase = AsyncPostgrestClient(url, headers=headers)
-
 def inicializar_db():
-    print("✅ Base de datos inicializada correctamente")
+    print("✅ Base de datos inicializada (modo HTTP directo)")
 
 def obtener_moneda():
     return "💰"
 
-async def obtener_o_crear_usuario(telegram_id, username):
-    # Agregamos 'await' antes de cada llamada a supabase
-    res = await supabase.table("usuarios").select("*").eq("telegram_id", telegram_id).execute()
+def obtener_o_crear_usuario(telegram_id, username):
+    r = httpx.get(
+        f"{BASE_URL}/usuarios?telegram_id=eq.{telegram_id}&select=*",
+        headers=HEADERS
+    )
+    data = r.json()
     
-    if not res.data:
-        nuevo = {"telegram_id": telegram_id, "username": username, "balance": 500}
-        await supabase.table("usuarios").insert(nuevo).execute()
-        return {"balance": 500, "nuevo": True}
+    if not data:
+        # No existe → lo creamos
+        httpx.post(
+            f"{BASE_URL}/usuarios",
+            headers=HEADERS,
+            json={"telegram_id": telegram_id, "username": username, "balance": 500}
+        )
+        return {"balance": 500, "ganadas": 0, "perdidas": 0, "pollos": 0}
     
-    return {"balance": res.data[0]["balance"], "nuevo": False}
+    u = data[0]
+    return {
+        "balance": u["balance"],
+        "ganadas": u.get("ganadas", 0),
+        "perdidas": u.get("perdidas", 0),
+        "pollos": u.get("pollos_ganados", 0)
+    }
 
-async def actualizar_saldo(telegram_id, cantidad, es_ganancia=True):
-    # Agregamos 'await'
-    res = await supabase.table("usuarios").select("balance").eq("telegram_id", telegram_id).execute()
+def actualizar_saldo(telegram_id, cantidad, es_ganancia=True):
+    # Traemos el balance actual
+    r = httpx.get(
+        f"{BASE_URL}/usuarios?telegram_id=eq.{telegram_id}&select=balance",
+        headers=HEADERS
+    )
+    balance_actual = r.json()[0]["balance"]
     
-    balance = res.data[0]["balance"]
-    nuevo = balance + cantidad if es_ganancia else balance - cantidad
+    nuevo = balance_actual + cantidad if es_ganancia else balance_actual - cantidad
     
-    # Agregamos 'await'
-    await supabase.table("usuarios").update({"balance": nuevo}).eq("telegram_id", telegram_id).execute()
+    httpx.patch(
+        f"{BASE_URL}/usuarios?telegram_id=eq.{telegram_id}",
+        headers=HEADERS,
+        json={"balance": nuevo}
+    )
+
+def obtener_id_por_username(username):
+    username_clean = username.replace("@", "").lower()
+    r = httpx.get(
+        f"{BASE_URL}/usuarios?username=eq.{username_clean}&select=telegram_id",
+        headers=HEADERS
+    )
+    data = r.json()
+    return data[0]["telegram_id"] if data else None
