@@ -10,7 +10,9 @@ if not URL or not KEY:
 
 # Cliente oficial de Supabase
 supabase = create_client(URL, KEY)
-
+def inicializar_db():
+    # Esta función solo sirve para mantener la compatibilidad con bot.py
+    print("Base de datos lista")
 # Funciones de utilidad
 def obtener_moneda():
     return "💰" # O el símbolo que prefieras
