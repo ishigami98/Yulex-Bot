@@ -151,6 +151,6 @@ async def cat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             data = response.json()
             url_foto = data[0]["url"]
             # Aquí cambiamos el texto del caption:
-            await update.message.reply_photo(photo=url_foto, caption="*Toma un gatito* 🐱")
+            await update.message.reply_photo(photo=url_foto, caption="Toma un gatito 🐱")
         except Exception:
             await update.message.reply_text("❌ Error al obtener el gatito.")

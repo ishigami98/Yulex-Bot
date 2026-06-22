@@ -6,12 +6,22 @@ from database.conexion import obtener_o_crear_usuario, obtener_moneda, actualiza
 
 # --- LÓGICA DE APUESTA UNIFICADA ---
 async def procesar_apuesta(update_obj, context, monto_str, color_usuario):
-    # Determinamos si viene de un comando (Update) o un botón (CallbackQuery)
-    user_id = update_obj.effective_user.id
-    username = update_obj.effective_user.username
+    # --- CORRECCIÓN AQUÍ ---
+    # Si viene de un botón (CallbackQuery), el usuario está en 'from_user'
+    # Si viene de un mensaje (Update), el usuario está en 'effective_user'
+    if hasattr(update_obj, 'from_user'):
+        user = update_obj.from_user
+    else:
+        user = update_obj.effective_user
+        
+    user_id = user.id
+    username = user.username or user.first_name
+    # -----------------------
     
     info = obtener_o_crear_usuario(user_id, username)
     m = obtener_moneda()
+    
+    # ... resto de tu lógica sigue igual ...
 
     # Validar monto
     if monto_str == "all":
@@ -62,11 +72,11 @@ async def manejar_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     
     _, color, monto = query.data.split("_")
+    
+    # Pasamos 'query' (el CallbackQuery) en lugar de 'update'
     respuesta = await procesar_apuesta(query, context, monto, color)
     
     await query.edit_message_text(text=f"{query.message.text}\n\n{respuesta}")
-
-# ... (mantén tus funciones trabajar, cock_fight y roll aquí abajo)
 
 async def trabajar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
