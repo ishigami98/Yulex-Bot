@@ -1,11 +1,21 @@
 import os
-from supabase import create_client
+from postgrest import Client
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-# Cliente oficial
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Construimos la URL completa para Postgrest
+# La API de Postgrest vive en SUPABASE_URL + /rest/v1
+url = f"{SUPABASE_URL}/rest/v1"
+headers = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": f"Bearer {SUPABASE_KEY}",
+    "Content-Type": "application/json",
+    "Prefer": "return=representation"
+}
+
+# Creamos el cliente
+supabase = Client(url, headers)
 
 def inicializar_db():
     print("✅ Conectado a Supabase con cliente oficial.")
