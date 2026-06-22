@@ -95,3 +95,4 @@ async def cat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         r = await client.get("https://api.thecatapi.com/v1/images/search")
         data = r.json()
         await update.message.reply_photo(data[0]["url"], caption="Toma un gatito 🐱")
+

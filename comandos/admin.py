@@ -1,7 +1,7 @@
 import os
 from telegram import Update
 from telegram.ext import ContextTypes
-from database.conexion import supabase, obtener_moneda, obtener_id_por_username
+from database.conexion import actualizar_saldo, obtener_id_por_username, supabase
 
 # ID del creador para permisos absolutos
 CREADOR_ID = int(os.environ.get("CREADOR_ID", 5235708855))
@@ -86,3 +86,25 @@ async def reset_money(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Reset propio si no es admin o no hay args
     supabase.table("usuarios").update({"balance": 500}).eq("telegram_id", user_id).execute()
     await update.message.reply_text("🔄 Has reiniciado tu dinero al balance inicial (500).")
+    
+async def give_money(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await es_administrador(update, context):
+        await update.message.reply_text("❌ No tienes permisos.")
+        return
+    
+    if len(context.args) < 2:
+        await update.message.reply_text("❌ Uso: /give_money <@usuario> <cantidad>")
+        return
+        
+    target_username = context.args[0]
+    try:
+        cantidad = int(context.args[1])
+    except ValueError:
+        return
+        
+    target_id = obtener_id_por_username(target_username)
+    if target_id:
+        actualizar_saldo(target_id, cantidad, es_ganancia=True)
+        await update.message.reply_text(f"✅ Se han enviado {cantidad} a {target_username}.")
+    else:
+        await update.message.reply_text("❌ Usuario no encontrado.")

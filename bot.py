@@ -9,9 +9,10 @@ import uvicorn
 # Importamos la inicialización del cliente de Supabase
 from database.conexion import inicializar_db
 # Importamos los comandos de tus módulos
-from comandos.generales import start, help_command, perfil, give_money, daily, leaderboard, cat
+# AHORA (Correcto, moviendo give_money a admin)
+from comandos.generales import start, help_command, perfil, daily, leaderboard, cat
+from comandos.admin import set_currency, add_money, remove_money, reset_economy, reset_money, give_money
 from comandos.juegos import trabajar, robar, ruleta, cock_fight, roll, manejar_callback
-from comandos.admin import set_currency, add_money, remove_money, reset_economy, reset_money
 
 # Instancia global de la aplicación del bot
 telegram_app = None
