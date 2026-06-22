@@ -6,21 +6,22 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import uvicorn
 
-# Importamos todo desde tus carpetas modulares
+# Importamos la inicialización del cliente de Supabase
 from database.conexion import inicializar_db
+# Importamos los comandos de tus módulos
 from comandos.generales import start, help_command, perfil, give_money, daily, leaderboard, cat
 from comandos.juegos import trabajar, robar, ruleta, cock_fight, roll, manejar_callback
 from comandos.admin import set_currency, add_money, remove_money, reset_economy, reset_money
 
-# Creamos una instancia global de la aplicación del bot
+# Instancia global de la aplicación del bot
 telegram_app = None
 
-# 🕒 El manejador de ciclo de vida moderno de FastAPI (Lifespan)
+# Ciclo de vida moderno para FastAPI (compatible con Render)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global telegram_app
     
-    # Inicializar la base de datos
+    # 1. Inicializar la base de datos (con cliente oficial)
     inicializar_db()
     
     TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -29,64 +30,59 @@ async def lifespan(app: FastAPI):
         yield
         return
 
-    # Construir la app de Telegram
+    # 2. Construir la app de Telegram
     telegram_app = Application.builder().token(TOKEN).build()
     
-    # 1. Borramos el webhook explícitamente primero
+    # Borramos el webhook para evitar conflictos
     await telegram_app.bot.delete_webhook(drop_pending_updates=True)
 
-    # === HANDLERS GENERALES ===
+    # === REGISTRO DE HANDLERS ===
+    # Generales
     telegram_app.add_handler(CommandHandler("start", start))
     telegram_app.add_handler(CommandHandler("help", help_command))
     telegram_app.add_handler(CommandHandler("perfil", perfil))
-    telegram_app.add_handler(CommandHandler("give_money", give_money)) # <-- Corregido
+    telegram_app.add_handler(CommandHandler("give_money", give_money))
     telegram_app.add_handler(CommandHandler("daily", daily))
-    telegram_app.add_handler(CommandHandler("leaderboard", leaderboard)) # <-- Corregido
+    telegram_app.add_handler(CommandHandler("leaderboard", leaderboard))
     telegram_app.add_handler(CommandHandler("cat", cat))
-
-    # === HANDLERS DE JUEGOS ===
+    
+    # Juegos
     telegram_app.add_handler(CommandHandler("trabajar", trabajar))
     telegram_app.add_handler(CommandHandler("robar", robar))
     telegram_app.add_handler(CommandHandler("ruleta", ruleta))
-    telegram_app.add_handler(CommandHandler("cock_fight", cock_fight)) # <-- Corregido
+    telegram_app.add_handler(CommandHandler("cock_fight", cock_fight))
     telegram_app.add_handler(CommandHandler("roll", roll))
-    telegram_app.add_handler(CommandHandler("ruleta", ruleta))
-    telegram_app.add_handler(CallbackQueryHandler(manejar_callback)) # <--- ESTO ES VITAL
+    telegram_app.add_handler(CallbackQueryHandler(manejar_callback))
+    
+    # Admin
+    telegram_app.add_handler(CommandHandler("set_currency", set_currency))
+    telegram_app.add_handler(CommandHandler("add_money", add_money))
+    telegram_app.add_handler(CommandHandler("remove_money", remove_money))
+    telegram_app.add_handler(CommandHandler("reset_economy", reset_economy))
+    telegram_app.add_handler(CommandHandler("reset_money", reset_money))
 
-    # === HANDLERS DE ADMINISTRACIÓN ===
-    telegram_app.add_handler(CommandHandler("set_currency", set_currency)) # <-- Corregido
-    telegram_app.add_handler(CommandHandler("add_money", add_money)) # <-- Corregido
-    telegram_app.add_handler(CommandHandler("remove_money", remove_money)) # <-- Corregido
-    telegram_app.add_handler(CommandHandler("reset_economy", reset_economy)) # <-- Corregido
-    telegram_app.add_handler(CommandHandler("reset_money", reset_money)) # <-- Corregido
-
-    # 2. Inicializar y arrancar el bot de forma limpia sin argumentos obsoletos
+    # 3. Arrancar polling
     await telegram_app.initialize()
     await telegram_app.start()
+    await telegram_app.updater.start_polling(drop_pending_updates=True)
     
-    await telegram_app.updater.start_polling(
-        drop_pending_updates=True,
-        bootstrap_retries=3
-    )
-    print("🚀 El bot de Telegram está escuchando de forma segura desde la nube...")
+    print("🚀 El bot de Telegram está activo y escuchando...")
     
-    yield  # Aquí es donde FastAPI se mantiene corriendo en el puerto asignado
+    yield 
     
-    # Código de apagado ordenado cuando Render detenga o reinicie el contenedor
-    print("🛑 Apagando el bot de Telegram...")
+    # Apagado ordenado
+    print("🛑 Apagando el bot...")
     await telegram_app.updater.stop()
     await telegram_app.stop()
     await telegram_app.shutdown()
 
-# Cambiamos el nombre de la variable a 'app' para que coincida perfectamente con Uvicorn
+# Instancia de FastAPI
 app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 def index():
     return {"status": "bot_vivo_y_camuflado"}
 
-# 🚨 ESTO ES LO QUE LE DICE A RENDER QUE MANTENGA EL PROCESO VIVO.
 if __name__ == "__main__":
-    # Render asigna el puerto dinámicamente en la variable de entorno PORT
-    puerto = int(os.environ.get("PORT", 8000))
-    uvicorn.run("bot:app", host="0.0.0.0", port=puerto)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
