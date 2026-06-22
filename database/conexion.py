@@ -1,21 +1,27 @@
 import os
-from postgrest import AsyncPostgrestClient
+from supabase import create_client
 
-# Verifica que estas variables existan en tu panel de Render
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+# Carga las variables desde el entorno de Render
+URL = os.environ.get("SUPABASE_URL")
+KEY = os.environ.get("SUPABASE_KEY")
 
-if not SUPABASE_URL:
-    raise ValueError("¡Falta la variable de entorno SUPABASE_URL!")
+if not URL or not KEY:
+    raise ValueError("¡Faltan las variables de entorno SUPABASE_URL o SUPABASE_KEY!")
 
-url = f"{SUPABASE_URL}/rest/v1"
-supabase = AsyncPostgrestClient(url, headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"})
+# Cliente oficial de Supabase
+supabase = create_client(URL, KEY)
 
-def inicializar_db():
-    print("✅ Base de datos inicializada (modo Async)")
-
+# Funciones de utilidad
 def obtener_moneda():
-    return "💰"
+    return "💰" # O el símbolo que prefieras
+
+def obtener_id_por_username(username):
+    # Asegúrate de limpiar el nombre
+    clean_username = username.replace("@", "").lower()
+    res = supabase.table("usuarios").select("telegram_id").eq("username", clean_username).execute()
+    if res.data:
+        return res.data[0]["telegram_id"]
+    return None
 
 async def obtener_o_crear_usuario(telegram_id, username):
     # Agregamos 'await' antes de cada llamada a supabase
@@ -38,15 +44,3 @@ async def actualizar_saldo(telegram_id, cantidad, es_ganancia=True):
     # Agregamos 'await'
     await supabase.table("usuarios").update({"balance": nuevo}).eq("telegram_id", telegram_id).execute()
     
-# database/conexion.py
-
-# ... (tus otras funciones como actualizar_saldo, obtener_moneda, etc.)
-
-async def obtener_id_por_username(username):
-    username_clean = username.replace("@", "").lower()
-    # Usamos el cliente supabase (que es AsyncPostgrestClient)
-    res = await supabase.table("usuarios").select("telegram_id").eq("username", username_clean).execute()
-    
-    if res.data:
-        return res.data[0]["telegram_id"]
-    return None
