@@ -150,6 +150,7 @@ async def cat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             response = await client.get(url_api)
             data = response.json()
             url_foto = data[0]["url"]
-            await update.message.reply_photo(photo=url_foto, caption="🐱 ¡Gatito aleatorio listo, papu!")
+            # Aquí cambiamos el texto del caption:
+            await update.message.reply_photo(photo=url_foto, caption="*Toma un gatito* 🐱")
         except Exception:
             await update.message.reply_text("❌ Error al obtener el gatito.")

@@ -1,5 +1,6 @@
 import os
 import asyncio
+from telegram.ext import CallbackQueryHandler
 from telegram.ext import Application, CommandHandler
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
@@ -8,7 +9,7 @@ import uvicorn
 # Importamos todo desde tus carpetas modulares
 from database.conexion import inicializar_db
 from comandos.generales import start, help_command, perfil, give_money, daily, leaderboard, cat
-from comandos.juegos import trabajar, robar, ruleta, cock_fight, roll
+from comandos.juegos import trabajar, robar, ruleta, cock_fight, roll, manejar_callback
 from comandos.admin import set_currency, add_money, remove_money, reset_economy, reset_money
 
 # Creamos una instancia global de la aplicación del bot
@@ -49,6 +50,8 @@ async def lifespan(app: FastAPI):
     telegram_app.add_handler(CommandHandler("ruleta", ruleta))
     telegram_app.add_handler(CommandHandler("cock_fight", cock_fight)) # <-- Corregido
     telegram_app.add_handler(CommandHandler("roll", roll))
+    telegram_app.add_handler(CommandHandler("ruleta", ruleta))
+    telegram_app.add_handler(CallbackQueryHandler(manejar_callback)) # <--- ESTO ES VITAL
 
     # === HANDLERS DE ADMINISTRACIÓN ===
     telegram_app.add_handler(CommandHandler("set_currency", set_currency)) # <-- Corregido
