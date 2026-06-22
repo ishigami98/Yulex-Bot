@@ -4,22 +4,18 @@ from postgrest import AsyncPostgrestClient
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-# La URL de Postgrest es la dirección del REST API
+# La URL de Postgrest es la API REST, no la URL raíz de Supabase
 url = f"{SUPABASE_URL}/rest/v1"
 
-# Creamos el cliente pasando solo la URL y el token
-# La librería se encarga de los headers internamente
-supabase = AsyncPostgrestClient(url, SUPABASE_KEY)
+# Instanciamos usando nombres de argumentos explícitos para evitar el TypeError
+# base_url y token son los nombres que espera la clase
+supabase = AsyncPostgrestClient(base_url=url, token=SUPABASE_KEY)
 
 def inicializar_db():
-    print("✅ Base de datos inicializada (Conexión asíncrona)")
+    print("✅ Base de datos conectada con AsyncPostgrestClient")
 
 def obtener_moneda():
     return "💰"
-
-# NOTA: Como ahora usamos postgrest nativo (asíncrono), 
-# todas las funciones que llaman a supabase.table(...) 
-# DEBEN ser 'async' y usar 'await'.
 
 async def obtener_o_crear_usuario(telegram_id, username):
     # Agregamos 'await' antes de cada llamada a supabase
