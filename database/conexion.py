@@ -34,3 +34,16 @@ async def actualizar_saldo(telegram_id, cantidad, es_ganancia=True):
     
     # Agregamos 'await'
     await supabase.table("usuarios").update({"balance": nuevo}).eq("telegram_id", telegram_id).execute()
+    
+# database/conexion.py
+
+# ... (tus otras funciones como actualizar_saldo, obtener_moneda, etc.)
+
+async def obtener_id_por_username(username):
+    username_clean = username.replace("@", "").lower()
+    # Usamos el cliente supabase (que es AsyncPostgrestClient)
+    res = await supabase.table("usuarios").select("telegram_id").eq("username", username_clean).execute()
+    
+    if res.data:
+        return res.data[0]["telegram_id"]
+    return None
