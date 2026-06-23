@@ -21,11 +21,18 @@ async def lifespan(app: FastAPI):
     # Tus nuevos Handlers
     telegram_app.add_handler(CommandHandler("start", lambda u, c: u.message.reply_text("¡Hola! Soy Yulex.")))
     telegram_app.add_handler(CommandHandler("dado", general.dado))
-    telegram_app.add_handler(CommandHandler("gato", general.gato))
+    telegram_app.add_handler(CommandHandler("cat", general.gato))
     telegram_app.add_handler(CommandHandler("help", general.help_cmd))
-    telegram_app.add_handler(CommandHandler("abrazo", interaccion.abrazo))
-    telegram_app.add_handler(CommandHandler("beso", interaccion.beso))
+    telegram_app.add_handler(CommandHandler("hug", interaccion.hug))
+    telegram_app.add_handler(CommandHandler("kiss", interaccion.kiss))
     telegram_app.add_handler(CommandHandler("ship", interaccion.ship))
+    app.add_handler(CommandHandler("8ball", general.ball8))
+    
+    # Dentro del bloque de handlers en bot.py
+    telegram_app.add_handler(CommandHandler("slap", interaccion.slap))
+    telegram_app.add_handler(CommandHandler("spank", interaccion.spank))
+    telegram_app.add_handler(CommandHandler("kill", interaccion.kill))
+    telegram_app.add_handler(CommandHandler("revive", interaccion.revive))
     
     telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ia.chat_con_ia))
 
