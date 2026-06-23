@@ -10,24 +10,34 @@ IMAGES = {
     "revive": ["https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJ4eG9pZzNqZ2JpbmZqZ2JpbmZqZ2JpbmZqZ2JpbmZqZ2JpbmZqZ2JpbmZqJmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/l41lTjJp90YyH2b2U/giphy.gif"]
 }
 
-async def generic_action(update: Update, context: ContextTypes.DEFAULT_TYPE, action_type: str, phrases: list):
-    target = None
+async def get_target(update: Update):
+    # 1. Si respondió a un mensaje, ese es el objetivo
     if update.message.reply_to_message:
-        target = update.message.reply_to_message.from_user
-    elif context.args:
-        # Simplificación para mencionar
-        target = " ".join(context.args)
+        return update.message.reply_to_message.from_user
+    
+    # 2. Si mencionó a alguien con @usuario
+    if update.message.entities:
+        for entity in update.message.entities:
+            if entity.type == 'mention':
+                # Buscamos el ID del usuario mencionado en la lista de entidades
+                # Nota: Esto requiere que el usuario esté en la caché del bot
+                return entity.user # Esto funciona si el usuario es miembro del grupo
+    
+    return None
 
-    if not target or (hasattr(target, 'id') and target.id == context.bot.id):
+async def generic_action(update: Update, context: ContextTypes.DEFAULT_TYPE, action_type: str, phrases: list):
+    target = await get_target(update)
+    
+    # Validación: Si no mencionó a nadie o si intenta interactuar consigo mismo o con el bot
+    if not target or target.id == update.effective_user.id or target.id == context.bot.id:
         await update.message.reply_text("¡Aléjate por favor!")
         return
 
-    name = target.first_name if hasattr(target, 'first_name') else target
     user = update.effective_user.first_name
+    target_name = target.first_name
     
-    text = random.choice(phrases).format(user=user, target=name)
+    text = random.choice(phrases).format(user=user, target=target_name)
     await update.message.reply_animation(animation=random.choice(IMAGES[action_type]), caption=text)
-
 # Funciones finales
 async def slap(u, c): await generic_action(u, c, "slap", ["{user} abofeteó a {target} muy fuerte!", "{user} le dio una bofetada a {target}."])
 async def spank(u, c): await generic_action(u, c, "spank", ["{user} le dio una nalgada a {target}!", "{target} recibió una nalgada traviesa de {user}."])
