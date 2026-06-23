@@ -1,32 +1,54 @@
 import os
 import asyncio
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
+import uvicorn
+
+# Tus nuevos módulos
 from comandos import ia, interaccion, general
 
-async def main():
-    token = os.environ.get("TELEGRAM_TOKEN")
-    app = Application.builder().token(token).build()
+# Instancia global
+telegram_app = None
 
-    # Handlers
-    app.add_handler(CommandHandler("start", lambda u, c: u.message.reply_text("¡Hola! Soy Yulex.")))
-    app.add_handler(CommandHandler("dado", general.dado))
-    app.add_handler(CommandHandler("gato", general.gato))
-    app.add_handler(CommandHandler("help", general.help_cmd))
-    app.add_handler(CommandHandler("abrazo", interaccion.abrazo))
-    app.add_handler(CommandHandler("beso", interaccion.beso))
-    app.add_handler(CommandHandler("ship", interaccion.ship))
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global telegram_app
     
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ia.chat_con_ia))
+    token = os.environ.get("TELEGRAM_TOKEN")
+    telegram_app = Application.builder().token(token).build()
 
+    # Tus nuevos Handlers
+    telegram_app.add_handler(CommandHandler("start", lambda u, c: u.message.reply_text("¡Hola! Soy Yulex.")))
+    telegram_app.add_handler(CommandHandler("dado", general.dado))
+    telegram_app.add_handler(CommandHandler("gato", general.gato))
+    telegram_app.add_handler(CommandHandler("help", general.help_cmd))
+    telegram_app.add_handler(CommandHandler("abrazo", interaccion.abrazo))
+    telegram_app.add_handler(CommandHandler("beso", interaccion.beso))
+    telegram_app.add_handler(CommandHandler("ship", interaccion.ship))
+    
+    telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, ia.chat_con_ia))
+
+    # Inicialización
+    await telegram_app.initialize()
+    await telegram_app.start()
+    await telegram_app.updater.start_polling(drop_pending_updates=True)
+    
     print("🚀 Yulex está listo...")
     
-    # Inicialización asíncrona
-    await app.initialize()
-    await app.start()
-    await app.updater.start_polling()
+    yield 
     
-    # Mantiene el bot vivo
-    await asyncio.Event().wait()
+    # Apagado
+    await telegram_app.updater.stop()
+    await telegram_app.stop()
+    await telegram_app.shutdown()
+
+app = FastAPI(lifespan=lifespan)
+
+@app.get("/")
+def index():
+    return {"status": "Yulex_vivo"}
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
