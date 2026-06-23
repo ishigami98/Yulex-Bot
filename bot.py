@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
     # Tus nuevos Handlers
     telegram_app.add_handler(CommandHandler("start", lambda u, c: u.message.reply_text("¡Hola! Soy Yulex.")))
     telegram_app.add_handler(CommandHandler("dado", general.dado))
-    telegram_app.add_handler(CommandHandler("cat", general.gato))
+    telegram_app.add_handler(CommandHandler("cat", general.cat))
     telegram_app.add_handler(CommandHandler("help", general.help_cmd))
     telegram_app.add_handler(CommandHandler("hug", interaccion.hug))
     telegram_app.add_handler(CommandHandler("kiss", interaccion.kiss))
@@ -57,5 +57,5 @@ def index():
     return {"status": "Yulex_vivo"}
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 8000)) # Render asigna esta variable
     uvicorn.run(app, host="0.0.0.0", port=port)
