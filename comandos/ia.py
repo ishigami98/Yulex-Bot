@@ -1,5 +1,6 @@
 from google import genai
 import os
+import asyncio
 
 client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
@@ -10,8 +11,9 @@ async def chat_con_ia(update, context):
     try:
         print(f"DEBUG: IA recibiendo mensaje: {update.message.text}")
         
-        # Ejecutar la llamada síncrona en un hilo separado
-        response = await client.aio.models.generate_content(
+        # Usar asyncio.to_thread para ejecutar la llamada síncrona
+        response = await asyncio.to_thread(
+            client.models.generate_content,
             model='gemini-2.0-flash',
             contents=update.message.text,
         )
