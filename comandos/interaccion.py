@@ -45,37 +45,35 @@ async def kill(u, c): await generic_action(u, c, "kill", ["{user} ha terminado c
 async def revive(u, c): await generic_action(u, c, "revive", ["{user} revivió a {target}!", "{target} ha sido revivido por {user}."])
 
 async def hug(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # 1. Identificar al objetivo (quien responde o quien es mencionado)
     target = None
-    
-    # Si responde a un mensaje
+    target_name = None
+
+    # 1. Si responde a un mensaje
     if update.message.reply_to_message:
         target = update.message.reply_to_message.from_user
-    # Si puso @usuario después del comando
+        target_name = target.first_name
+    
+    # 2. Si hay mención @usuario
     elif update.message.entities:
         for entity in update.message.entities:
             if entity.type == 'mention':
-                target_username = update.message.text[entity.offset:entity.offset+entity.length]
-                # Nota: Para mayor precisión, podrías buscar el usuario en contexto, 
-                # pero con el nombre directo basta para el mensaje.
-                target = target_username
+                target_name = update.message.text[entity.offset + 1 : entity.offset + entity.length]
+                target = target_name # Guardamos el nombre como fallback
                 break
 
-    # 2. Validación de seguridad (si no hay objetivo o si intenta abrazar al bot)
+    # 3. Validación
     if not target or (hasattr(target, 'id') and target.id == context.bot.id):
         await update.message.reply_text("¡Aléjate por favor!")
         return
 
-    # 3. Preparar nombre del objetivo
-    target_name = target.first_name if hasattr(target, 'first_name') else target
     user = update.effective_user.first_name
 
-    # 4. Frases aleatorias (en inglés como pediste)
+    # 4. Frases en ESPAÑOL
     phrases = [
-        f"🤗 {user} gave a warm hug to {target_name}!",
-        f"✨ {user} wrapped {target_name} in a big, cozy hug.",
-        f"💖 {target_name} received a lovely hug from {user}.",
-        f"🤗 {user} pulls {target_name} into a tight hug!"
+        f"🤗 {user} le dio un abrazo cálido a {target_name}!",
+        f"✨ {user} envolvió a {target_name} en un gran abrazo acogedor.",
+        f"💖 {target_name} recibió un abrazo lleno de cariño de {user}.",
+        f"🤗 {user} atrae a {target_name} hacia un fuerte abrazo!"
     ]
     
     await update.message.reply_text(random.choice(phrases))

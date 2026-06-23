@@ -1,19 +1,21 @@
 from google import genai
 import os
 
-# Aseguramos que el cliente se inicie correctamente
-api_key = os.environ.get("GEMINI_API_KEY")
-client = genai.Client(api_key=api_key)
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 async def chat_con_ia(update, context):
+    # Esto evita que el bot responda si el mensaje está vacío o es un comando
+    if not update.message or not update.message.text:
+        return
+
     try:
-        user_input = update.message.text
-        # Usamos el modelo correcto y validamos la respuesta
+        # Usamos el modelo 'gemini-2.0-flash'
         response = client.models.generate_content(
             model='gemini-2.0-flash',
-            contents=user_input,
+            contents=update.message.text,
         )
         await update.message.reply_text(response.text)
     except Exception as e:
-        print(f"Error en IA: {e}") # Esto aparecerá en los logs de Render
-        await update.message.reply_text("Ups, mi cerebro de IA tuvo un pequeño fallo. Intenta de nuevo.")
+        # Logueamos el error para saber qué pasa exactamente en Render
+        print(f"DEBUG IA ERROR: {e}") 
+        await update.message.reply_text("Perdona, mi cerebro de IA está un poco nublado. Intenta de nuevo.")
