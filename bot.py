@@ -101,4 +101,4 @@ def read_root():
 if __name__ == "__main__":
     # El servidor web corre en el puerto provisto por Render (o 8000 localmente)
     puerto = int(os.environ.get("PORT", 8000))
-    uvicorn.run("bot.py:app", host="0.0.0.0", port=puerto, reload=False)
+    uvicorn.run("bot:app", host="0.0.0.0", port=puerto, reload=False)
