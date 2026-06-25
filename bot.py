@@ -1,15 +1,17 @@
 import os
 import asyncio
+import uvicorn
 from telegram.ext import CallbackQueryHandler
 from telegram.ext import Application, CommandHandler
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-import uvicorn
+from telegram.ext import MessageHandler, filters # Necesitas importar esto
 
 # Importamos la inicialización del cliente de Supabase
 from database.conexion import inicializar_db
+
 # Importamos los comandos de tus módulos
-# AHORA (Correcto, moviendo give_money a admin)
+from comandos.afk import set_afk, check_afk # Agrega esto arriba
 from comandos.generales import start, help_command, perfil, daily, leaderboard, cat
 from comandos.admin import set_currency, add_money, remove_money, reset_economy, reset_money, give_money
 from comandos.juegos import trabajar, robar, ruleta, cock_fight, roll, manejar_callback
@@ -61,7 +63,14 @@ async def lifespan(app: FastAPI):
     telegram_app.add_handler(CommandHandler("remove_money", remove_money))
     telegram_app.add_handler(CommandHandler("reset_economy", reset_economy))
     telegram_app.add_handler(CommandHandler("reset_money", reset_money))
-
+    
+    # AFK
+    telegram_app.add_handler(CommandHandler("afk", set_afk))
+    
+    # Este handler detecta mensajes normales para chequear si el usuario está AFK
+    # Se ignora si es un comando (para no interferir)
+    telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_afk))
+    
     # 3. Arrancar polling
     await telegram_app.initialize()
     await telegram_app.start()
