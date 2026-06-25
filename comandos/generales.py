@@ -12,7 +12,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     username = update.effective_user.username or update.effective_user.first_name
     
-    # Esta función debería ser async y usar await, asegúrate de actualizarla en conexion.py
     info = await obtener_o_crear_usuario(user_id, username)
     m = obtener_moneda()
     
@@ -23,19 +22,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     m = obtener_moneda()
+    # CORRECCIÓN: Usamos etiquetas HTML (<b> y <code>) para evitar el crasheo por guiones bajos
     texto_help = (
-        "🤖 **Lista de Comandos Disponibles** 🤖\n\n"
-        "**⚙️ Admin / Moderación:**\n"
-        "🔸 `/set_currency` - Cambia el símbolo global.\n"
-        "🔸 `/add_money` - Añade dinero.\n\n"
-        "💸 **Economía:** /perfil, /daily, /leaderboard\n"
-        "🎲 **Juegos:** /trabajar, /robar, /ruleta, /cock_fight, /roll, /cat"
+        "🤖 <b>Lista de Comandos Disponibles</b> 🤖\n\n"
+        "<b>⚙️ Admin / Moderación:</b>\n"
+        "🔸 <code>/set_currency</code> - Cambia el símbolo global.\n"
+        "🔸 <code>/add_money</code> - Añade dinero.\n\n"
+        "💸 <b>Economía:</b> /perfil, /daily, /leaderboard\n"
+        "🎲 <b>Juegos:</b> /trabajar, /robar, /ruleta, /cock_fight, /roll, /cat"
     )
-    await update.message.reply_text(texto_help, parse_mode="Markdown")
+    await update.message.reply_text(texto_help, parse_mode="HTML")
 
 async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    # Uso correcto de await con el cliente de Supabase
     res = await supabase.table("usuarios").select("*").eq("telegram_id", user_id).execute()
     
     if not res.data:
@@ -44,11 +43,13 @@ async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     u = res.data[0]
     m = obtener_moneda()
-    texto = (f"👤 **Perfil de @{u['username']}**\n\n"
+    
+    # CORRECCIÓN: HTML previene errores si el usuario se llama "juan_perez"
+    texto = (f"👤 <b>Perfil de @{u['username']}</b>\n\n"
              f"{m} Saldo: {u['balance']}\n"
              f"📈 Victorias: {u.get('ganadas', 0)}\n"
              f"📉 Derrotas: {u.get('perdidas', 0)}")
-    await update.message.reply_markdown(texto)
+    await update.message.reply_text(texto, parse_mode="HTML")
 
 async def daily(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -85,14 +86,15 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
         
     m = obtener_moneda()
-    texto_lead = "🏆 **TOP 10 RICOS** 🏆\n\n"
+    texto_lead = "🏆 <b>TOP 10 RICOS</b> 🏆\n\n"
     for i, u in enumerate(res.data, start=1):
         texto_lead += f"{i}. @{u['username']} — {m} {u['balance']}\n"
-    await update.message.reply_markdown(texto_lead)
+        
+    # CORRECCIÓN: Parse mode cambiado a HTML
+    await update.message.reply_text(texto_lead, parse_mode="HTML")
 
 async def cat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     async with httpx.AsyncClient() as client:
         r = await client.get("https://api.thecatapi.com/v1/images/search")
         data = r.json()
         await update.message.reply_photo(data[0]["url"], caption="Toma un gatito 🐱")
-
