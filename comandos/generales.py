@@ -3,10 +3,7 @@ import random
 import httpx
 from telegram import Update
 from telegram.ext import ContextTypes
-# Importamos supabase directamente desde la conexión
-from database.conexion import (
-    obtener_o_crear_usuario, obtener_moneda, supabase
-)
+from database.conexion import obtener_o_crear_usuario, obtener_moneda, supabase
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -22,7 +19,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     m = obtener_moneda()
-    # CORRECCIÓN: Usamos etiquetas HTML (<b> y <code>) para evitar el crasheo por guiones bajos
     texto_help = (
         "🤖 <b>Lista de Comandos Disponibles</b> 🤖\n\n"
         "<b>⚙️ Admin / Moderación:</b>\n"
@@ -35,7 +31,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    res = await supabase.table("usuarios").select("*").eq("telegram_id", user_id).execute()
+    # CORRECCIÓN: Quitamos 'await'
+    res = supabase.table("usuarios").select("*").eq("telegram_id", user_id).execute()
     
     if not res.data:
         await update.message.reply_text("❌ No tienes un perfil creado. Usa /start")
@@ -44,7 +41,6 @@ async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u = res.data[0]
     m = obtener_moneda()
     
-    # CORRECCIÓN: HTML previene errores si el usuario se llama "juan_perez"
     texto = (f"👤 <b>Perfil de @{u['username']}</b>\n\n"
              f"{m} Saldo: {u['balance']}\n"
              f"📈 Victorias: {u.get('ganadas', 0)}\n"
@@ -53,7 +49,8 @@ async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def daily(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    res = await supabase.table("usuarios").select("ultima_daily, balance").eq("telegram_id", user_id).execute()
+    # CORRECCIÓN: Quitamos 'await'
+    res = supabase.table("usuarios").select("ultima_daily, balance").eq("telegram_id", user_id).execute()
     
     if not res.data:
         await update.message.reply_text("❌ Primero crea tu perfil con /start")
@@ -71,7 +68,8 @@ async def daily(update: Update, context: ContextTypes.DEFAULT_TYPE):
     recompensa = random.randint(100, 300)
     nuevo_balance = res.data[0]["balance"] + recompensa
     
-    await supabase.table("usuarios").update({
+    # CORRECCIÓN: Quitamos 'await'
+    supabase.table("usuarios").update({
         "balance": nuevo_balance,
         "ultima_daily": ahora.isoformat()
     }).eq("telegram_id", user_id).execute()
@@ -79,7 +77,8 @@ async def daily(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"🎁 ¡Bono Diario! Ganaste {obtener_moneda()} {recompensa}.")
 
 async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    res = await supabase.table("usuarios").select("username, balance").order("balance", desc=True).limit(10).execute()
+    # CORRECCIÓN: Quitamos 'await'
+    res = supabase.table("usuarios").select("username, balance").order("balance", desc=True).limit(10).execute()
     
     if not res.data:
         await update.message.reply_text("La lista está vacía.")
@@ -90,7 +89,6 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for i, u in enumerate(res.data, start=1):
         texto_lead += f"{i}. @{u['username']} — {m} {u['balance']}\n"
         
-    # CORRECCIÓN: Parse mode cambiado a HTML
     await update.message.reply_text(texto_lead, parse_mode="HTML")
 
 async def cat(update: Update, context: ContextTypes.DEFAULT_TYPE):
