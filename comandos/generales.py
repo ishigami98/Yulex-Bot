@@ -1,9 +1,13 @@
 import datetime
 import random
 import httpx
+import logging  # Importante para logs internos
 from telegram import Update
 from telegram.ext import ContextTypes
-from database.conexion import obtener_o_crear_usuario, obtener_moneda, supabase
+from database.conexion import obtener_o_crear_usuario, obtener_moneda, actualizar_saldo
+
+# Configurar logs para que veamos los errores en la consola sin mostrarlos al usuario
+logger = logging.getLogger(__name__)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -13,9 +17,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     m = obtener_moneda()
     
     if info.get("nuevo"):
-        await update.message.reply_text(f"👋 ¡Hola {username}! ¡Bienvenido al CasinoBot!\nTe he regalado {m} 500 de bienvenida. ¡Usa /help para ver los comandos!")
+        await update.message.reply_text(
+            f"👋 ¡Hola {username}! ¡Bienvenido al CasinoBot!\n"
+            f"Te he regalado 500 {m} de bienvenida. ¡Usa /help para ver los comandos!"
+        )
     else:
-        await update.message.reply_text(f"¡Hola de nuevo, {username}! Tu saldo actual es de {m} {info['balance']}.")
+        # Usamos .get('balance', 0) para evitar KeyError
+        saldo = info.get('balance', 0)
+        await update.message.reply_text(f"¡Hola de nuevo, {username}! Tu saldo actual es de {saldo} {m}.")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     m = obtener_moneda()
@@ -30,69 +39,32 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(texto_help, parse_mode="HTML")
 
 async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    # CORRECCIÓN: Quitamos 'await'
-    res = supabase.table("usuarios").select("*").eq("telegram_id", user_id).execute()
-    
-    if not res.data:
-        await update.message.reply_text("❌ No tienes un perfil creado. Usa /start")
-        return
+    try:
+        user_id = update.effective_user.id
+        # Usamos la función de conexión, no supabase directo
+        info = await obtener_o_crear_usuario(user_id, update.effective_user.username)
+        m = obtener_moneda()
         
-    u = res.data[0]
-    m = obtener_moneda()
-    
-    texto = (f"👤 <b>Perfil de @{u['username']}</b>\n\n"
-             f"{m} Saldo: {u['balance']}\n"
-             f"📈 Victorias: {u.get('ganadas', 0)}\n"
-             f"📉 Derrotas: {u.get('perdidas', 0)}")
-    await update.message.reply_text(texto, parse_mode="HTML")
-
-async def daily(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    # CORRECCIÓN: Quitamos 'await'
-    res = supabase.table("usuarios").select("ultima_daily, balance").eq("telegram_id", user_id).execute()
-    
-    if not res.data:
-        await update.message.reply_text("❌ Primero crea tu perfil con /start")
-        return
-
-    ultima_daily = res.data[0].get("ultima_daily")
-    ahora = datetime.datetime.now()
-    
-    if ultima_daily:
-        fecha_ultima = datetime.datetime.fromisoformat(ultima_daily)
-        if (ahora - fecha_ultima).days < 1:
-            await update.message.reply_text("⏳ Ya reclamaste tu bono hoy. Vuelve mañana.")
-            return
-
-    recompensa = random.randint(100, 300)
-    nuevo_balance = res.data[0]["balance"] + recompensa
-    
-    # CORRECCIÓN: Quitamos 'await'
-    supabase.table("usuarios").update({
-        "balance": nuevo_balance,
-        "ultima_daily": ahora.isoformat()
-    }).eq("telegram_id", user_id).execute()
-    
-    await update.message.reply_text(f"🎁 ¡Bono Diario! Ganaste {obtener_moneda()} {recompensa}.")
-
-async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # CORRECCIÓN: Quitamos 'await'
-    res = supabase.table("usuarios").select("username, balance").order("balance", desc=True).limit(10).execute()
-    
-    if not res.data:
-        await update.message.reply_text("La lista está vacía.")
-        return
+        texto = (f"👤 <b>Perfil de @{info.get('username', 'usuario')}</b>\n\n"
+                 f"Saldo: {info.get('balance', 0)} {m}\n"
+                 f"📈 Victorias: {info.get('ganadas', 0)}\n"
+                 f"📉 Derrotas: {info.get('perdidas', 0)}")
+        await update.message.reply_text(texto, parse_mode="HTML")
         
-    m = obtener_moneda()
-    texto_lead = "🏆 <b>TOP 10 RICOS</b> 🏆\n\n"
-    for i, u in enumerate(res.data, start=1):
-        texto_lead += f"{i}. @{u['username']} — {m} {u['balance']}\n"
-        
-    await update.message.reply_text(texto_lead, parse_mode="HTML")
+    except Exception as e:
+        logger.error(f"Error en perfil: {e}")
+        await update.message.reply_text("❌ Hubo un error al cargar tu perfil. Inténtalo más tarde.")
 
 async def cat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    async with httpx.AsyncClient() as client:
-        r = await client.get("https://api.thecatapi.com/v1/images/search")
-        data = r.json()
-        await update.message.reply_photo(data[0]["url"], caption="Toma un gatito 🐱")
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get("https://api.thecatapi.com/v1/images/search")
+            data = r.json()
+            # Validamos que la API nos devuelva datos antes de acceder
+            if data and isinstance(data, list) and len(data) > 0:
+                await update.message.reply_photo(data[0]["url"], caption="Toma un gatito 🐱")
+            else:
+                await update.message.reply_text("❌ No pude encontrar un gatito, intenta de nuevo.")
+    except Exception as e:
+        logger.error(f"Error en cat: {e}")
+        await update.message.reply_text("❌ Error al buscar el gatito.")
