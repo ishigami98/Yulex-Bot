@@ -14,6 +14,7 @@ async def procesar_apuesta(update_obj, context, monto_str, color_usuario):
     user_id = user.id
     username = user.username or user.first_name
     
+    # CORRECCIÓN: Agregado 'await' aquí
     info = await obtener_o_crear_usuario(user_id, username)
     m = obtener_moneda()
     
@@ -32,10 +33,12 @@ async def procesar_apuesta(update_obj, context, monto_str, color_usuario):
     # Lógica de Ruleta
     resultado = random.choice(["rojo", "negro"])
     if resultado == color_usuario.lower():
-        await actualizar_saldo(user_id, monto, es_ganancia=True) 
+        # CORRECCIÓN: Agregado 'await' aquí
+        await actualizar_saldo(user_id, monto, es_ganancia=True)
         return f"🎉 ¡Ganaste! Salió {resultado}. Ganaste {m} {monto}."
     else:
-        await actualizar_saldo(user_id, monto, es_ganancia=False) 
+        # CORRECCIÓN: Agregado 'await' aquí
+        await actualizar_saldo(user_id, monto, es_ganancia=False)
         return f"💸 Perdiste. Salió {resultado}. Perdiste {m} {monto}."
 
 async def trabajar(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -50,8 +53,10 @@ async def trabajar(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
     paga = random.randint(300, 600)
-    actualizar_saldo(user_id, paga, es_ganancia=True)
-    supabase.table("usuarios").update({"ultima_trabajo": ahora.isoformat()}).eq("telegram_id", user_id).execute()
+    # CORRECCIÓN: Agregado 'await' a actualizar_saldo y a la actualización de supabase
+    await actualizar_saldo(user_id, paga, es_ganancia=True)
+    await supabase.table("usuarios").update({"ultima_trabajo": ahora.isoformat()}).eq("telegram_id", user_id).execute()
+    
     await update.message.reply_text(f"✅ ¡Has trabajado y ganado {obtener_moneda()} {paga}!")
 
 async def robar(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -61,16 +66,19 @@ async def robar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if exito:
         botin = random.randint(100, 200)
-        actualizar_saldo(user_id, botin, es_ganancia=True)
+        # CORRECCIÓN: Agregado 'await'
+        await actualizar_saldo(user_id, botin, es_ganancia=True)
         await update.message.reply_text(f"💰 ¡Robo exitoso! Ganaste {m} {botin}.")
     else:
         multa = random.randint(50, 150)
-        actualizar_saldo(user_id, multa, es_ganancia=False)
+        # CORRECCIÓN: Agregado 'await'
+        await actualizar_saldo(user_id, multa, es_ganancia=False)
         await update.message.reply_text(f"👮‍♂️ ¡Te atraparon! Pagaste {m} {multa} de multa.")
 
 async def ruleta(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
-        await update.message.reply_text("❌ Uso: `/ruleta <cantidad> <rojo/negro>`")
+        # CORRECCIÓN: Cambiado a HTML y usando entidades HTML para < >
+        await update.message.reply_text("❌ Uso: <code>/ruleta &lt;cantidad&gt; &lt;rojo/negro&gt;</code>", parse_mode="HTML")
         return
     # Aquí puedes mantener la lógica para mostrar botones si quieres o simplificar a solo comando
     await update.message.reply_text("Has elegido apostar. (Usa los botones si están activos).")
@@ -83,17 +91,19 @@ async def manejar_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_text(text=f"{query.message.text}\n\n{respuesta}")
 
 async def cock_fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Lógica simplificada con el cliente supabase
     user_id = update.effective_user.id
     apuesta = int(context.args[0]) if context.args else 100
     
     if random.random() < 0.6: # 60% win rate
-        actualizar_saldo(user_id, apuesta, es_ganancia=True)
+        # CORRECCIÓN: Agregado 'await'
+        await actualizar_saldo(user_id, apuesta, es_ganancia=True)
         await update.message.reply_text("🏆 ¡Victoria de tu gallo! Has ganado.")
     else:
-        actualizar_saldo(update.effective_user.id, apuesta, es_ganancia=False)
+        # CORRECCIÓN: Agregado 'await'
+        await actualizar_saldo(user_id, apuesta, es_ganancia=False)
         await update.message.reply_text("💀 Tu gallo fue derrotado. Perdiste.")
 
 async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     resultado = random.randint(1, 6)
-    await update.message.reply_text(f"🎲 Resultado: **{resultado}**")
+    # CORRECCIÓN: Cambiado a etiquetas HTML <b> en vez de **
+    await update.message.reply_text(f"🎲 Resultado: <b>{resultado}</b>", parse_mode="HTML")

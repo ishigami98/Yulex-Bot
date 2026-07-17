@@ -43,7 +43,6 @@ async def add_money(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if target_id:
         res = supabase.table("usuarios").select("balance").eq("telegram_id", target_id).execute()
         nuevo_saldo = res.data[0]["balance"] + cantidad
-        # QUITA EL AWAIT AQUÍ
         supabase.table("usuarios").update({"balance": nuevo_saldo}).eq("telegram_id", target_id).execute()
         await update.message.reply_text(f"✅ Se añadieron {cantidad} al saldo de {target_user}.")
     else:
