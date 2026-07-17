@@ -1,20 +1,9 @@
 import os
 import asyncio
-<<<<<<< HEAD
-from telegram.ext import CallbackQueryHandler
-from telegram.ext import Application, CommandHandler
-=======
->>>>>>> c29d3a96c4cae04ab1577530073bc15aad2b4a91
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import uvicorn
 
-<<<<<<< HEAD
-# Importamos la inicialización del cliente de Supabase
-from database.conexion import inicializar_db
-# Importamos los comandos de tus módulos
-# AHORA (Correcto, moviendo give_money a admin)
-=======
 # Extensiones y manejadores de python-telegram-bot
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
@@ -22,17 +11,13 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 from database.conexion import inicializar_db
 
 # Importamos los comandos de tus módulos
->>>>>>> c29d3a96c4cae04ab1577530073bc15aad2b4a91
 from comandos.generales import start, help_command, perfil, daily, leaderboard, cat
 from comandos.admin import set_currency, add_money, remove_money, reset_economy, reset_money, give_money
 from comandos.juegos import trabajar, robar, ruleta, cock_fight, roll, manejar_callback
 
-<<<<<<< HEAD
-=======
 # Importamos las funciones del nuevo módulo AFK
 from comandos.afk import set_afk, check_afk
 
->>>>>>> c29d3a96c4cae04ab1577530073bc15aad2b4a91
 # Instancia global de la aplicación del bot
 telegram_app = None
 
@@ -53,18 +38,11 @@ async def lifespan(app: FastAPI):
     # 2. Construir la app de Telegram
     telegram_app = Application.builder().token(TOKEN).build()
     
-<<<<<<< HEAD
-    # Borramos el webhook para evitar conflictos
-    await telegram_app.bot.delete_webhook(drop_pending_updates=True)
-
-    # === REGISTRO DE HANDLERS ===
-=======
     # Borramos el webhook para evitar conflictos previos y limpiar actualizaciones colgadas
     await telegram_app.bot.delete_webhook(drop_pending_updates=True)
 
     # === REGISTRO DE HANDLERS ===
     
->>>>>>> c29d3a96c4cae04ab1577530073bc15aad2b4a91
     # Generales
     telegram_app.add_handler(CommandHandler("start", start))
     telegram_app.add_handler(CommandHandler("help", help_command))
@@ -88,10 +66,6 @@ async def lifespan(app: FastAPI):
     telegram_app.add_handler(CommandHandler("remove_money", remove_money))
     telegram_app.add_handler(CommandHandler("reset_economy", reset_economy))
     telegram_app.add_handler(CommandHandler("reset_money", reset_money))
-<<<<<<< HEAD
-
-    # 3. Arrancar polling
-=======
     
     # AFK (Comando Slash)
     telegram_app.add_handler(CommandHandler("afk", set_afk))
@@ -102,7 +76,6 @@ async def lifespan(app: FastAPI):
     telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_afk))
 
     # 3. Arrancar polling de forma limpia
->>>>>>> c29d3a96c4cae04ab1577530073bc15aad2b4a91
     await telegram_app.initialize()
     await telegram_app.start()
     await telegram_app.updater.start_polling(drop_pending_updates=True)
@@ -111,28 +84,12 @@ async def lifespan(app: FastAPI):
     
     yield 
     
-<<<<<<< HEAD
-    # Apagado ordenado
-=======
     # Apagado ordenado del proceso al detener el servicio
->>>>>>> c29d3a96c4cae04ab1577530073bc15aad2b4a91
     print("🛑 Apagando el bot...")
     await telegram_app.updater.stop()
     await telegram_app.stop()
     await telegram_app.shutdown()
 
-<<<<<<< HEAD
-# Instancia de FastAPI
-app = FastAPI(lifespan=lifespan)
-
-@app.get("/")
-def index():
-    return {"status": "bot_vivo_y_camuflado"}
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
-=======
 # Instancia de FastAPI con el ciclo de vida configurado
 app = FastAPI(lifespan=lifespan)
 
@@ -145,4 +102,3 @@ if __name__ == "__main__":
     # El servidor web corre en el puerto provisto por Render (o 8000 localmente)
     puerto = int(os.environ.get("PORT", 8000))
     uvicorn.run("bot:app", host="0.0.0.0", port=puerto, reload=False)
->>>>>>> c29d3a96c4cae04ab1577530073bc15aad2b4a91
