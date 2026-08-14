@@ -13,7 +13,7 @@ from database.conexion import inicializar_db
 # Comandos
 from comandos.generales import start, help_command, perfil, daily, leaderboard, cat
 from comandos.admin import set_currency, add_money, remove_money, reset_economy, reset_money, give_money
-from comandos.juegos import trabajar, robar, ruleta, cock_fight, roll, manejar_callback
+from comandos.juegos import trabajar, crimen, ruleta, cock_fight, roll, manejar_callback
 from comandos.afk import set_afk, check_afk
 
 # Instancia global de la aplicación del bot
@@ -51,7 +51,7 @@ async def lifespan(app: FastAPI):
 
     # Juegos
     telegram_app.add_handler(CommandHandler("trabajar", trabajar))
-    telegram_app.add_handler(CommandHandler("robar", robar))
+    telegram_app.add_handler(CommandHandler("crimen", crimen))
     telegram_app.add_handler(CommandHandler("ruleta", ruleta))
     telegram_app.add_handler(CommandHandler("cock_fight", cock_fight))
     telegram_app.add_handler(CommandHandler("roll", roll))

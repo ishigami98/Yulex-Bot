@@ -60,15 +60,33 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     m = obtener_moneda()
-    texto_help = (
-        "🤖 <b>Lista de Comandos Disponibles</b> 🤖\n\n"
-        "<b>⚙️ Admin / Moderación:</b>\n"
-        "🔸 <code>/set_currency</code> - Cambia el símbolo global.\n"
-        "🔸 <code>/add_money</code> - Añade dinero.\n\n"
-        "💸 <b>Economía:</b> /perfil, /daily, /leaderboard\n"
-        "🎲 <b>Juegos:</b> /trabajar, /robar, /ruleta, /cock_fight, /roll, /cat"
+    texto = (
+        "🤖 <b>Lista de Comandos</b> 🤖\n\n"
+
+        "<b>💼 Economía</b>\n"
+        "🔸 <code>/perfil</code> — Ver tu saldo, victorias y derrotas.\n"
+        "🔸 <code>/daily</code> — Reclamar tu bono diario (cada 24h).\n"
+        "🔸 <code>/leaderboard</code> — Top 10 de los más ricos.\n\n"
+
+        "<b>🎲 Juegos de azar</b>\n"
+        f"🔸 <code>/ruleta &lt;cantidad&gt; &lt;color&gt;</code> — Apuesta al rojo, negro o verde. "
+        "Verde paga x14, el resto x2.\n"
+        f"🔸 <code>/roll &lt;cantidad&gt; &lt;número 1-6&gt;</code> — Adivina el dado. Si aciertas ganas x1.5.\n"
+        f"🔸 <code>/cock_fight &lt;cantidad&gt;</code> — Pelea de gallos, ganás x2.\n\n"
+
+        "<b>💸 Trabajo y Crimen</b>\n"
+        "🔸 <code>/trabajar</code> — Trabaja y gana monedas (cada 8h).\n"
+        "🔸 <code>/crimen</code> — Intenta un crimen, puede salir bien o mal (cada 4h).\n\n"
+
+        "<b>😴 Otros</b>\n"
+        "🔸 <code>/afk [razón]</code> — Marcarte como ausente. Vuelve escribiendo cualquier cosa.\n"
+        "🔸 <code>/cat</code> — Foto random de un gato.\n"
+        "🔸 <code>/help</code> — Muestra este mensaje.\n\n"
+
+        f"<i>La moneda actual es {m}.</i>"
     )
-    await update.message.reply_text(texto_help, parse_mode="HTML")
+    await update.message.reply_text(texto, parse_mode="HTML")
+
 
 
 async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE):

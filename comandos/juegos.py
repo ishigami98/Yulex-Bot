@@ -12,10 +12,10 @@ from database.conexion import (
 
 logger = logging.getLogger(__name__)
 
-# Constantes
+# ============ CONSTANTES ============
+COOLDOWN_TRABAJAR = timedelta(hours=8)
+COOLDOWN_CRIMEN = timedelta(hours=4)
 APUESTA_MINIMA = 10
-COOLDOWN_TRABAJAR = timedelta(hours=2)
-COOLDOWN_ROBAR = timedelta(hours=4)
 
 
 # ============ HELPERS ============
@@ -72,7 +72,7 @@ def _restante(ultimo_str, cooldown):
         return None
 
 
-# ============ TRABAJAR ============
+# ============ TRABAJAR (cada 8h) ============
 async def trabajar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user = update.effective_user
@@ -98,6 +98,8 @@ async def trabajar(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Hiciste un stream de programación 💻",
             "Tradujiste un manual técnico 📚",
             "Reparaste una PC gamer 🖥️",
+            "Hiciste entregas a domicilio 🛵",
+            "Cuidaste al perro del vecino 🐕",
         ]
         frase = random.choice(frases)
         await update.message.reply_text(
@@ -108,56 +110,57 @@ async def trabajar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Error en trabajar: {e}")
         await update.message.reply_text("❌ Error al trabajar. Inténtalo más tarde.")
 
+# ============ CRIMEN (cada 4h, sin reply) ============
+CRIMENES = [
+    # (texto, exito_msg_template, fallo_msg_template, paga_min, paga_max, multa_min, multa_max)
+    ("asaltar el banco 🏦",       "robaste del banco",        "te atraparon en el banco",          200, 600,  80, 200),
+    ("robar a una abuelita 👵",   "le quitaste la cartera",   "la abuelita te dio con el bastón",  50, 150,  30, 80),
+    ("hackear una cuenta 💻",     "hackeaste la cuenta",      "te rastrearon las IPs",             100, 350,  60, 150),
+    ("vender cosas sospechosas 📦", "vendiste la mercancía",  "la policía confiscó todo",           80, 250,  40, 100),
+    ("estafar por internet 🎭",  "te creyeron todo",         "te reportaron y baneaste",          60, 200,  30, 90),
+    ("robar un auto 🚗",          "te lo llevaste",           "la policía te siguió hasta tu casa", 250, 700, 100, 250),
+    ("vender drogas en la escuela 🚬", "vendiste todo",       "el director te entregó a la poli",  150, 400,  80, 180),
+    ("romper un buzón de correo 📮", "encontraste dinero",    "te mordió un perro guardián",         20, 80,   10, 40),
+    ("asaltar una tienda 🏪",     "te llevaste la caja",      "el dueño te disparó",               120, 380,  70, 160),
+    ("clonar tarjetas 💳",         "te quedaron 50 lucas",    "el banco congeló tu cuenta",        180, 500,  90, 200),
+]
 
-# ============ ROBAR ============
-async def robar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def crimen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user = update.effective_user
-        if not update.message.reply_to_message:
-            await update.message.reply_text(
-                "⚠️ Responde al mensaje de la persona que quieres robar."
-            )
-            return
+        info = _perfil(user.id, user.username)
+        m = obtener_moneda()
 
-        victima = update.message.reply_to_message.from_user
-        if victima.id == user.id:
-            await update.message.reply_text("🤨 No te puedes robar a ti mismo.")
-            return
-        if victima.is_bot:
-            await update.message.reply_text("🤖 No puedes robarle a un bot.")
-            return
-
-        info_atacante = _perfil(user.id, user.username)
-        if not _puede_hacer(info_atacante["ultimo_robo"], COOLDOWN_ROBAR):
-            restante = _restante(info_atacante["ultimo_robo"], COOLDOWN_ROBAR)
+        if not _puede_hacer(info["ultimo_robo"], COOLDOWN_CRIMEN):
+            restante = _restante(info["ultimo_robo"], COOLDOWN_CRIMEN)
             await update.message.reply_text(
                 f"⏳ La policía te vigila. Vuelve en {restante}."
             )
             return
 
-        info_victima = _perfil(victima.id, victima.username)
-        m = obtener_moneda()
+        accion, exito_tpl, fallo_tpl, g_min, g_max, p_min, p_max = random.choice(CRIMENES)
+        exito = random.random() < 0.5  # 50% probabilidad
 
-        if info_victima["balance"] < APUESTA_MINIMA:
-            await update.message.reply_text(
-                f"😬 @{info_victima['username']} no tiene suficiente para robar."
-            )
-            return
-
-        exito = random.random() < 0.4  # 40% probabilidad
         if exito:
-            botin = random.randint(20, min(150, info_victima["balance"]))
-            actualizar_saldo(victima.id, botin, es_ganancia=False)
-            nuevo = actualizar_saldo(user.id, botin, es_ganancia=True)
+            ganancia = random.randint(g_min, g_max)
+            nuevo = actualizar_saldo(user.id, ganancia, es_ganancia=True)
             await update.message.reply_text(
-                f"🦹 ¡Robaste {botin} {m} a @{info_victima['username']}!\n"
-                f"Tu saldo: {nuevo} {m}"
+                f"🦹 <b>Intento: {accion}</b>\n\n"
+                f"✅ {exito_tpl} y ganaste {ganancia} {m}.\n"
+                f"Saldo actual: {nuevo} {m}",
+                parse_mode="HTML",
             )
         else:
-            multa = random.randint(20, 60)
-            actualizar_saldo(user.id, multa, es_ganancia=False)
+            multa = random.randint(p_min, p_max)
+            # Si no le alcanza para pagar la multa, queda en 0
+            saldo_actual = info["balance"]
+            multa_real = min(multa, saldo_actual)
+            actualizar_saldo(user.id, multa_real, es_ganancia=False)
             await update.message.reply_text(
-                f"🚔 Te atraparon. Pagaste {multa} {m} de multa."
+                f"🦹 <b>Intento: {accion}</b>\n\n"
+                f"❌ {fallo_tpl}. Pagaste {multa_real} {m} de multa.\n"
+                f"Saldo actual: {max(0, saldo_actual - multa_real)} {m}",
+                parse_mode="HTML",
             )
 
         supabase.table("usuarios").update(
@@ -165,8 +168,8 @@ async def robar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ).eq("telegram_id", user.id).execute()
 
     except Exception as e:
-        logger.error(f"Error en robar: {e}")
-        await update.message.reply_text("❌ Error al robar.")
+        logger.error(f"Error en crimen: {e}")
+        await update.message.reply_text("❌ Error en el crimen.")
 
 
 # ============ RULETA (rusa) ============
@@ -238,21 +241,29 @@ async def ruleta(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Error en la ruleta.")
 
 
-# ============ ROLL (dados) ============
+# ============ ROLL (eliges número) ============
 async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user = update.effective_user
         m = obtener_moneda()
 
-        if not context.args:
-            await update.message.reply_text("🎲 Uso: /roll <cantidad>")
-            return
-        try:
-            apuesta = int(context.args[0])
-        except ValueError:
-            await update.message.reply_text("❌ La apuesta debe ser un número.")
+        if not context.args or len(context.args) < 2:
+            await update.message.reply_text(
+                f"🎲 Uso: /roll <cantidad> <número 1-6>\n"
+                f"Acertar paga x1.5. Falla pierdes lo apostado."
+            )
             return
 
+        try:
+            apuesta = int(context.args[0])
+            eleccion = int(context.args[1])
+        except ValueError:
+            await update.message.reply_text("❌ La apuesta y el número deben ser enteros.")
+            return
+
+        if eleccion < 1 or eleccion > 6:
+            await update.message.reply_text("❌ El número debe ser del 1 al 6.")
+            return
         if apuesta < APUESTA_MINIMA:
             await update.message.reply_text(f"❌ Apuesta mínima: {APUESTA_MINIMA} {m}.")
             return
@@ -265,24 +276,26 @@ async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         dado = random.randint(1, 6)
-        # Si sale 4, 5 o 6 gana el doble. Si no, pierde.
-        if dado >= 4:
-            premio = apuesta * 2
+        if dado == eleccion:
+            premio = int(apuesta * 1.5)
             nuevo = actualizar_saldo(user.id, premio, es_ganancia=True)
             await update.message.reply_text(
-                f"🎲 Sacaste {dado}. ¡Ganaste {premio} {m}! Saldo: {nuevo} {m}"
+                f"🎲 Sacaste <b>{dado}</b>. ¡Acertaste!\n"
+                f"Ganaste {premio} {m}. Saldo: {nuevo} {m}",
+                parse_mode="HTML",
             )
         else:
             actualizar_saldo(user.id, apuesta, es_ganancia=False)
             info = _perfil(user.id, user.username)
             await update.message.reply_text(
-                f"🎲 Sacaste {dado}. Perdiste {apuesta} {m}. Saldo: {info['balance']} {m}"
+                f"🎲 Sacaste <b>{dado}</b>. Apostaste al {eleccion}.\n"
+                f"Perdiste {apuesta} {m}. Saldo: {info['balance']} {m}",
+                parse_mode="HTML",
             )
 
     except Exception as e:
         logger.error(f"Error en roll: {e}")
         await update.message.reply_text("❌ Error en el dado.")
-
 
 # ============ COCK FIGHT (pelea de gallos) ============
 async def cock_fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
