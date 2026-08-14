@@ -15,7 +15,6 @@ def _perfil_completo(user_id, username):
     info = obtener_o_crear_usuario(user_id, username)
     username = username or f"user_{user_id}"
 
-    # Si acabamos de crearlo, info solo trae balance. Refetch para más campos:
     try:
         res = supabase.table("usuarios").select("*").eq("telegram_id", user_id).execute()
         if res.data:
@@ -25,7 +24,10 @@ def _perfil_completo(user_id, username):
                 "balance": row.get("balance", 0),
                 "ganadas": row.get("ganadas", 0),
                 "perdidas": row.get("perdidas", 0),
-                "ultimo_daily": row.get("ultima_recarga"),
+                "ultima_recarga": row.get("ultima_recarga"),
+                "ultimo_robo": row.get("ultimo_robo"),
+                "ultimo_daily": row.get("ultimo_daily"),
+                "pollos_ganados": row.get("pollos_ganados", 0),
                 "nuevo": info.get("nuevo", False),
             }
     except Exception as e:
@@ -36,9 +38,41 @@ def _perfil_completo(user_id, username):
         "balance": info.get("balance", 0),
         "ganadas": 0,
         "perdidas": 0,
+        "ultima_recarga": None,
+        "ultimo_robo": None,
         "ultimo_daily": None,
+        "pollos_ganados": 0,
         "nuevo": info.get("nuevo", False),
     }
+
+
+def _puede_hacer(ultimo_str, cooldown):
+    """Devuelve True si ya pasó el cooldown (o si nunca lo hizo)."""
+    if not ultimo_str:
+        return True
+    try:
+        ultimo = datetime.datetime.fromisoformat(ultimo_str)
+        ahora = datetime.datetime.utcnow()
+        return (ahora - ultimo) >= cooldown
+    except (ValueError, TypeError):
+        return True
+
+
+def _restante(ultimo_str, cooldown):
+    """Devuelve string 'Xh Ym' con el tiempo restante. None si no hay cooldown."""
+    if not ultimo_str:
+        return None
+    try:
+        ultimo = datetime.datetime.fromisoformat(ultimo_str)
+        ahora = datetime.datetime.utcnow()
+        diff = cooldown - (ahora - ultimo)
+        if diff.total_seconds() <= 0:
+            return None
+        horas = int(diff.total_seconds() // 3600)
+        minutos = int((diff.total_seconds() % 3600) // 60)
+        return f"{horas}h {minutos}m"
+    except (ValueError, TypeError):
+        return None
 
 
 # ============ COMANDOS ============
@@ -88,7 +122,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(texto, parse_mode="HTML")
 
 
-
 async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user = update.effective_user
@@ -102,7 +135,6 @@ async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📉 Derrotas: {info['perdidas']}"
         )
         await update.message.reply_text(texto, parse_mode="HTML")
-
     except Exception as e:
         logger.error(f"Error en perfil: {e}")
         await update.message.reply_text("❌ Hubo un error al cargar tu perfil. Inténtalo más tarde.")
@@ -114,31 +146,24 @@ async def daily(update: Update, context: ContextTypes.DEFAULT_TYPE):
         info = _perfil_completo(user.id, user.username)
         m = obtener_moneda()
 
-        ahora = datetime.datetime.utcnow()
-        ultimo = info.get("ultimo_daily")
-
-        if ultimo:
-            try:
-                ultimo_dt = datetime.datetime.fromisoformat(ultimo)
-                if (ahora - ultimo_dt) < datetime.timedelta(hours=24):
-                    restante = datetime.timedelta(hours=24) - (ahora - ultimo_dt)
-                    horas = int(restante.total_seconds() // 3600)
-                    minutos = int((restante.total_seconds() % 3600) // 60)
-                    await update.message.reply_text(
-                        f"⏳ Ya reclamaste tu daily. Vuelve en {horas}h {minutos}m."
-                    )
-                    return
-            except (ValueError, TypeError):
-                pass  # fecha corrupta, dejamos reclamar
+        # Cooldown propio: ultimo_daily (24h)
+        if not _puede_hacer(info["ultimo_daily"], datetime.timedelta(hours=24)):
+            restante = _restante(info["ultimo_daily"], datetime.timedelta(hours=24))
+            await update.message.reply_text(
+                f"⏳ Ya reclamaste tu daily. Vuelve en {restante}."
+            )
+            return
 
         recompensa = random.randint(100, 300)
-        actualizar_saldo(user.id, recompensa, es_ganancia=True)
+        nuevo = actualizar_saldo(user.id, recompensa, es_ganancia=True)
+        # Escribe en su PROPIA columna, no en ultima_recarga
         supabase.table("usuarios").update(
-            {"ultima_recarga": ahora.isoformat()}
+            {"ultimo_daily": datetime.datetime.utcnow().isoformat()}
         ).eq("telegram_id", user.id).execute()
 
         await update.message.reply_text(
-            f"🎁 ¡Reclamaste tu daily! Ganaste {recompensa} {m}."
+            f"🎁 ¡Reclamaste tu daily! Ganaste {recompensa} {m}.\n"
+            f"Saldo actual: {nuevo} {m}"
         )
 
     except Exception as e:
