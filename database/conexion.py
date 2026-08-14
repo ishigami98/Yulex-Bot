@@ -8,44 +8,70 @@ KEY = os.environ.get("SUPABASE_KEY")
 if not URL or not KEY:
     raise ValueError("¡Faltan las variables de entorno SUPABASE_URL o SUPABASE_KEY!")
 
-# Cliente oficial de Supabase (Síncrono)
+# Cliente oficial de Supabase (síncrono)
 supabase = create_client(URL, KEY)
 
-def inicializar_db():
-    print("Base de datos lista")
 
-# Funciones de utilidad
+def inicializar_db():
+    """Verifica que la conexión con Supabase funcione."""
+    try:
+        supabase.table("usuarios").select("telegram_id").limit(1).execute()
+        print("✅ Conexión con Supabase OK")
+    except Exception as e:
+        print(f"❌ Error conectando a Supabase: {e}")
+
+
 def obtener_moneda():
-    return "💰" 
+    try:
+        res = supabase.table("configuracion").select("valor").eq("clave", "moneda").execute()
+        if res.data:
+            return res.data[0]["valor"]
+    except Exception as e:
+        print(f"Error en obtener_moneda: {e}")
+    return "🪙"  # fallback
+
+
 
 def obtener_id_por_username(username):
-    clean_username = username.replace("@", "").lower()
-    res = supabase.table("usuarios").select("telegram_id").eq("username", clean_username).execute()
-    if res.data:
-        return res.data[0]["telegram_id"]
+    """Busca el telegram_id de un usuario por su @username."""
+    clean = username.replace("@", "").lower()
+    try:
+        res = supabase.table("usuarios").select("telegram_id").eq("username", clean).execute()
+        if res.data:
+            return res.data[0]["telegram_id"]
+    except Exception as e:
+        print(f"Error en obtener_id_por_username: {e}")
     return None
 
-async def obtener_o_crear_usuario(telegram_id, username):
-    # Quitamos el 'await' porque supabase es síncrono
-    res = supabase.table("usuarios").select("*").eq("telegram_id", telegram_id).execute()
-    
-    if not res.data:
-        nuevo = {"telegram_id": telegram_id, "username": username, "balance": 500}
-        # Quitamos el 'await'
-        supabase.table("usuarios").insert(nuevo).execute()
-        return {"balance": 500, "nuevo": True}
-    
-    return {"balance": res.data[0]["balance"], "nuevo": False}
 
-async def actualizar_saldo(telegram_id, cantidad, es_ganancia=True):
-    # Quitamos el 'await'
-    res = supabase.table("usuarios").select("balance").eq("telegram_id", telegram_id).execute()
-    
-    if not res.data:
-        return # O maneja el error si el usuario no existe
-        
-    balance = res.data[0]["balance"]
-    nuevo = balance + cantidad if es_ganancia else balance - cantidad
-    
-    # Quitamos el 'await'
-    supabase.table("usuarios").update({"balance": nuevo}).eq("telegram_id", telegram_id).execute()
+def obtener_o_crear_usuario(telegram_id, username):
+    """Devuelve el balance del usuario. Lo crea con 500 si no existe."""
+    username = username or f"user_{telegram_id}"
+    try:
+        res = supabase.table("usuarios").select("*").eq("telegram_id", telegram_id).execute()
+
+        if not res.data:
+            nuevo = {"telegram_id": telegram_id, "username": username, "balance": 500}
+            supabase.table("usuarios").insert(nuevo).execute()
+            return {"balance": 500, "nuevo": True}
+
+        return {"balance": res.data[0]["balance"], "nuevo": False}
+    except Exception as e:
+        print(f"Error en obtener_o_crear_usuario: {e}")
+        return {"balance": 0, "nuevo": False}
+
+
+def actualizar_saldo(telegram_id, cantidad, es_ganancia=True):
+    """Suma o resta al balance del usuario. Devuelve el nuevo saldo o None si falla."""
+    try:
+        res = supabase.table("usuarios").select("balance").eq("telegram_id", telegram_id).execute()
+        if not res.data:
+            return None
+
+        balance_actual = res.data[0]["balance"]
+        nuevo = balance_actual + cantidad if es_ganancia else balance_actual - cantidad
+        supabase.table("usuarios").update({"balance": nuevo}).eq("telegram_id", telegram_id).execute()
+        return nuevo
+    except Exception as e:
+        print(f"Error en actualizar_saldo: {e}")
+        return None

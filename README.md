@@ -1,179 +1,134 @@
-## 🎰 Yulex-Bot
+# 🎰 Yulex-Bot
 
-¡Un bot de economía y entretenimiento para grupos de Telegram completamente modular, seguro y optimizado para desplegarse gratis en Render y Supabase!
+Bot de economía y entretenimiento para grupos de Telegram, modular, con Supabase y desplegado gratis en Render.
 
-## 🚀 Características principales
-- **📈 Sistema de Economía:** Registro automático de usuarios con saldo inicial, transferencias de dinero (`/give_money`) y tablas de clasificación en tiempo real (`/leaderboard`).
-- **🎲 Juegos y Azar:** Ruleta personalizada (`/ruleta`), peleas de pollos con multiplicadores de racha (`/cock_fight`), tiradas de dados dinámicas (`/roll`) y comandos de ocio como `/cat`.
-- **💼 Trabajos y Eventos:** Comando de `/trabajar` con paga aleatoria, comandos de `/robar` con riesgo de multas y reclamos de bonos cada 24 horas (`/daily`).
-- **⚙️ Panel de Administración:** Configuración global del símbolo de la moneda (`/set_currency`), comandos avanzados para añadir, remover o reiniciar saldos (`/add_money`, `/remove_money`, `/reset_economy`).
-- **🛡️ Conexión HTTP Segura (Anti-bloqueos):** Totalmente migrado a una arquitectura HTTP asíncrona mediante la API REST de Supabase, evitando bloqueos de puertos TCP (puerto 5432) en entornos restrictivos y nubes gratuitas.
-- **☁️ Listo para la Capa Gratis (Render/Koyeb):** Integra un microservidor web con **FastAPI** y **Uvicorn** para responder a los pings de salud (*health checks*) de las plataformas, manteniendo el bot activo 24/7 sin planes de pago.
+## ✨ Características
+
+- **💰 Sistema de economía:** registro automático, saldo inicial, leaderboard, transferencias.
+- **🎲 Juegos:** ruleta (rojo/negro/verde x14), pelea de gallos, dados, trabajar, robar.
+- **🎁 Daily:** reclamo cada 24h con cooldown.
+- **🐱 Ocio:** `/cat` con la API de TheCatAPI.
+- **😴 AFK:** comando `/afk` o escribiendo `brb`; detecta menciones y respuestas.
+- **🛡 Permisos:** comandos de admin y panel para `CREADOR_ID`.
+- **☁️ Deploy gratuito:** FastAPI + Uvicorn + ping keep-alive para evitar que Render duerma el servicio.
 
 ## 📂 Estructura del Proyecto
-├── comandos/
-│   ├── admin.py       # Comandos administrativos y de moderación
-│   ├── generales.py   # Comandos básicos, perfiles y utilidades
-│   └── juegos.py      # Lógica de apuestas, minijuegos y trabajos
+.
+├── bot.py # Entry point (FastAPI + python-telegram-bot)
+├── requirements.txt
+├── README.md
+├── .gitignore
 ├── database/
-│   └── conexion.py    # Puente de conexión HTTP con Supabase
-├── bot.py             # Archivo principal (FastAPI + Inicializador del Bot)
-├── requirements.txt   # Dependencias del proyecto
-└── README.md          # Documentación del repositorio
+│ └── conexion.py # Cliente de Supabase + helpers
+└── comandos/
+├── generales.py # /start /help /perfil /daily /leaderboard /cat
+├── juegos.py # /trabajar /robar /ruleta /roll /cock_fight
+├── admin.py # /add_money /remove_money /reset_*
+└── afk.py # /afk + detección automática
 
-## 🛠️ Variables de Entorno Requeridas
+## 🗄️ Esquema de Supabase
 
-Para desplegar el bot con éxito en la nube, debes configurar las siguientes variables de entorno (*Environment Variables*):
+Crea estas tablas en el SQL Editor de Supabase:
 
-| Variable | Descripción |
-| --- | --- |
-| `TELEGRAM_TOKEN` | El token oficial de tu bot proporcionado por `@BotFather`. |
-| `SUPABASE_KEY` | Tu clave de API secreta (*Service Role / Secret Key*) de Supabase. |
-| `CREADOR_ID` | Tu ID de Telegram numérico para darte permisos absolutos de administrador. |
+```sql
+DROP TABLE IF EXISTS usuarios CASCADE;
+DROP TABLE IF EXISTS configuracion CASCADE;
 
-## 📦 Instalación Local
+CREATE TABLE usuarios (
+    telegram_id    BIGINT PRIMARY KEY,
+    username       TEXT,
+    balance        INTEGER DEFAULT 500,
+    ganadas        INTEGER DEFAULT 0,
+    perdidas       INTEGER DEFAULT 0,
+    ultima_recarga TIMESTAMPTZ,
+    ultimo_robo    TIMESTAMPTZ,
+    pollos_ganados INTEGER DEFAULT 0
+);
 
-Si deseas probar el proyecto de forma local en tu máquina:
+CREATE TABLE configuracion (
+    clave TEXT PRIMARY KEY,
+    valor TEXT
+);
 
-1. Clona este repositorio:
-```bash
-git clone [https://github.com/ishigami98/Yulex-Bot.git](https://github.com/ishigami98/Yulex-Bot.git)
+INSERT INTO configuracion (clave, valor)
+VALUES ('moneda', '🪙')
+ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor;
+
+🛠 Variables de Entorno
+
+| Variable       | Descripción                                           |
+| -------------- | ----------------------------------------------------- |
+| TELEGRAM_TOKEN | Token del bot dado por @BotFather.                    |
+| SUPABASE_URL   | URL del proyecto (https://xxxxx.supabase.co).         |
+| SUPABASE_KEY   | API Key de Supabase (usa la service_role para admin). |
+| CREADOR_ID     | Tu Telegram ID numerico para permisos absolutos.      |
+| PORT           | Lo asigna Render automáticamente (no tocar).          |
+
+
+📦 Instalación Local
+# 1. Clonar
+git clone https://github.com/ishigami98/Yulex-Bot.git
 cd Yulex-Bot
 
-```
-
-
-2. Crea e inicia tu entorno virtual:
-```bash
+# 2. Entorno virtual
 python -m venv .venv
-source .venv/bin/activate  # En Windows usa: .venv\\Scripts\\activate
+source .venv/bin/activate        # Linux/Mac
+# .venv\Scripts\activate         # Windows
 
-```
-
-
-3. Instala las dependencias necesarias:
-```bash
+# 3. Dependencias
 pip install -r requirements.txt
 
-```
+# 4. Variables locales
+export TELEGRAM_TOKEN="..."
+export SUPABASE_URL="..."
+export SUPABASE_KEY="..."
+export CREADOR_ID="123456789"
 
-
-4. Define tus variables de entorno locales o crea un archivo `.env` y ejecuta el punto de entrada principal:
-```bash
+# 5. Ejecutar
 python bot.py
 
-```
+☁️ Deploy en Render (plan gratuito)
+1. Sube el repo a GitHub.
+2. En Render (https://render.com/) crea un Web Service desde el repo.
+3. Configuración:
+- Build command: pip install -r requirements.txt
+- Start command: uvicorn bot:app --host 0.0.0.0 --port $PORT
+4. Agrega las variables de entorno (TELEGRAM_TOKEN, SUPABASE_URL, etc.).
+5. Importante: Render free duerme el servicio a los 15 min sin tráfico.
+Usa cron-job.org (https://cron-job.org/) o UptimeRobot (https://uptimerobot.com/)
+para hacer ping a https://tu-app.onrender.com/ cada 5 minutos.
 
+📋 Comandos disponibles
+Generales
+- /start — Registro y bienvenida
+- /help — Lista de comandos
+- /perfil — Tu perfil y balance
+- /daily — Bono diario
+- /leaderboard — Top 10 más ricos
+- /cat — Foto random de gato
+Juegos
+- /trabajar — Gana monedas (cooldown 2h)
+- /robar — Roba a otro usuario (cooldown 4h)
+- /ruleta <cantidad> <color> — Ruleta rusa
+- /roll <cantidad> — Dado 1-6
+- /cock_fight <cantidad> — Pelea de gallos
+Admin
+- /set_currency <símbolo> — Cambia la moneda global
+- /add_money @user <cantidad> — Suma al balance
+- /remove_money @user <cantidad> — Resta al balance
+- /reset_economy CONFIRMAR — Resetea todo
+- /reset_money [@user] — Resetea uno o todos
+AFK
+- /afk [razón] — Marca como AFK
+- Escribir brb [razón] — AFK rápido
+- Cualquier mensaje — Vuelve automáticamente
 
+🧰 Tech Stack
+- Python 3.11+
+- python-telegram-bot (https://python-telegram-bot.org/) 21.x
+- FastAPI (https://fastapi.tiangolo.com/) + Uvicorn (https://www.uvicorn.org/)
+- Supabase (https://supabase.com/) (REST + Postgres)
 
----
-
-Desarrollado con ❤️ en Python.
-"""
-
-with open("README.md", "w", encoding="utf-8") as f:
-f.write(readme_content)
-
-print("README.md generado con éxito.")
-
-```
-¡Qué golazo, papu! Me alegra muchísimo que ya esté respondiendo al 100% en vivo. 
-
-Para cerrar con broche de oro y dejar tu repositorio impecable como todo un desarrollador senior, te he generado un archivo **`README.md`** profesional. Está totalmente personalizado con tu usuario de GitHub (`ishigami98`), el nombre del bot (`Yulex-Bot`), la explicación de la arquitectura modular en carpetas y el truco de FastAPI/Supabase HTTP que usamos para saltarnos los bloqueos.
-
-Tu archivo Markdown está listo para descargar:
-[file-tag: code-generated-file-0-1781986539333650857]
-
-### 📝 Lo que puedes hacer para agregarlo a GitHub:
-
-1. Crea un archivo llamado **`README.md`** en la raíz de tu proyecto en VS Code.
-2. Abre el archivo descargado o copia el siguiente contenido adentro:
-
-```markdown
-# 🎰 CasinoBot (Yulex-Bot)
-
-¡Un bot de economía y entretenimiento para grupos de Telegram completamente modular, seguro y optimizado para desplegarse gratis en Render y Supabase!
-
-## 🚀 Características principales
-- **📈 Sistema de Economía:** Registro automático de usuarios con saldo inicial, transferencias de dinero (`/give_money`) y tablas de clasificación en tiempo real (`/leaderboard`).
-- **🎲 Juegos y Azar:** Ruleta personalizada (`/ruleta`), peleas de pollos con multiplicadores de racha (`/cock_fight`), tiradas de dados dinámicas (`/roll`) y comandos de ocio como `/cat`.
-- **💼 Trabajos y Eventos:** Comando de `/trabajar` con paga aleatoria, comandos de `/robar` con riesgo de multas y reclamos de bonos cada 24 horas (`/daily`).
-- **⚙️ Panel de Administración:** Configuración global del símbolo de la moneda (`/set_currency`), comandos avanzados para añadir, remover o reiniciar saldos (`/add_money`, `/remove_money`, `/reset_economy`).
-- **🛡️ Conexión HTTP Segura (Anti-bloqueos):** Totalmente migrado a una arquitectura HTTP asíncrona mediante la API REST de Supabase, evitando bloqueos de puertos TCP (puerto 5432) en entornos restrictivos y nubes gratuitas.
-- **☁️ Listo para la Capa Gratis (Render):** Integra un microservidor web con **FastAPI** y **Uvicorn** para responder a los pings de salud (*health checks*) de las plataformas, manteniendo el bot activo 24/7 sin planes de pago.
-
-## 📂 Estructura del Proyecto (Modular)
-```text
-├── comandos/
-│   ├── admin.py       # Comandos administrativos y de moderación
-│   ├── generales.py   # Comandos básicos, perfiles y utilidades
-│   └── juegos.py      # Lógica de apuestas, minijuegos y trabajos
-├── database/
-│   └── conexion.py    # Puente de conexión HTTP con Supabase
-├── bot.py             # Archivo principal (FastAPI + Inicializador del Bot)
-├── requirements.txt   # Dependencias del proyecto
-└── README.md          # Documentación del repositorio
-
-```
-
-## 🛠️ Variables de Entorno Requeridas
-
-Para desplegar el bot con éxito en la nube, debes configurar las siguientes variables de entorno (*Environment Variables*):
-
-| Variable | Descripción |
-| --- | --- |
-| `TELEGRAM_TOKEN` | El token oficial de tu bot proporcionado por `@BotFather`. |
-| `SUPABASE_KEY` | Tu clave de API secreta (*Service Role / Secret Key*) de Supabase. |
-| `CREADOR_ID` | Tu ID de Telegram numérico para darte permisos absolutos de administrador. |
-
-## 📦 Instalación Local
-
-Si deseas probar el proyecto de forma local en tu máquina:
-
-1. Clona este repositorio:
-```bash
-git clone [https://github.com/ishigami98/Yulex-Bot.git](https://github.com/ishigami98/Yulex-Bot.git)
-cd Yulex-Bot
-
-```
-
-
-2. Crea e inicia tu entorno virtual:
-```bash
-python -m venv .venv
-source .venv/bin/activate  # En Windows usa: .venv\Scripts\activate
-
-```
-
-
-3. Instala las dependencias necesarias:
-```bash
-pip install -r requirements.txt
-
-```
-
-
-4. Define tus variables de entorno locales y ejecuta el punto de entrada principal:
-```bash
-python bot.py
-
-```
-
-
-
----
-
-Desarrollado con ❤️ en Python.
-
-```
-
-### 🚀 Súbelo a tu repositorio:
-Guárdalo y lánzalo a GitHub desde tu terminal:
-```bash
-git add README.md
-git commit -m "docs: agregar documentación completa en el readme"
-git push origin main
-
-```
-
-¡Con esto tu perfil va a lucir impecable y el proyecto queda documentado formalmente! Un gusto haberte ayudado a poner a correr ese bot en la nube, papu. Si en el futuro quieres meterle más juegos, rangos o tiendas, por aquí me encontrarás. ¡A disfrutar del vicio en el grupo! 🎰🐓🏆
+📝 Licencia
+MIT — Úsalo, modifícalo y rómpelo a tu gusto.
+Desarrollado con ❤️ por ishigami98 (https://github.com/ishigami98)
