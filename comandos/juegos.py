@@ -377,10 +377,6 @@ async def manejar_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if random.random() < 0.5:
             premio = apuesta * 2
             nuevo = actualizar_saldo(user_id, premio, es_ganancia=True)
-            supabase.table("usuarios").update(
-                {"pollos_ganados": supabase.rpc("increment_pollos", {"uid": user_id}).execute()}
-            ).eq("telegram_id", user_id).execute() if False else None
-            # Lo anterior es complejo. Simplificamos:
             try:
                 res = supabase.table("usuarios").select("pollos_ganados").eq("telegram_id", user_id).execute()
                 actual = res.data[0].get("pollos_ganados", 0) if res.data else 0
@@ -408,3 +404,7 @@ async def manejar_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text("❌ Error procesando la pelea.")
         except Exception:
             pass
+
+
+# Alias de compatibilidad
+robar = crimen
