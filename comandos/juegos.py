@@ -1,43 +1,104 @@
 import random
 import logging
-from datetime import datetime, timedelta
+import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
+from telegram.error import TelegramError
 from database.conexion import (
-    obtener_o_crear_usuario,
-    obtener_moneda,
-    actualizar_saldo,
+    async_obtener_o_crear_usuario,
+    async_obtener_moneda,
+    async_actualizar_saldo,
+    async_ejecutar,
     supabase,
 )
 
 logger = logging.getLogger(__name__)
 
 # ============ CONSTANTES ============
-COOLDOWN_TRABAJAR = timedelta(hours=8)
-COOLDOWN_CRIMEN = timedelta(hours=4)
+COOLDOWN_TRABAJAR = datetime.timedelta(hours=8)
+COOLDOWN_CRIMEN = datetime.timedelta(hours=4)
 APUESTA_MINIMA = 10
 
 
-# ============ HELPERS ============
-def _perfil(user_id, username):
-    """Trae balance + cooldowns en una sola consulta."""
-    info = obtener_o_crear_usuario(user_id, username)
-    username = username or f"user_{user_id}"
+# ============ HELPERS DE TIEMPO Y COOLDOWN (UTC & TIMEZONE-AWARE) ============
+def parse_utc_timestamp(ts_str: str | None) -> datetime.datetime | None:
+    """Parsea una cadena ISO de timestamp y garantiza que sea un objeto datetime con zona horaria UTC."""
+    if not ts_str:
+        return None
     try:
-        res = supabase.table("usuarios").select("*").eq("telegram_id", user_id).execute()
+        clean_str = str(ts_str).strip()
+        if clean_str.endswith("Z"):
+            clean_str = clean_str[:-1] + "+00:00"
+        dt = datetime.datetime.fromisoformat(clean_str)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=datetime.timezone.utc)
+        else:
+            dt = dt.astimezone(datetime.timezone.utc)
+        return dt
+    except Exception as e:
+        logger.error(f"Error parseando timestamp '{ts_str}': {e}")
+        return None
+
+
+def _puede_hacer(ultimo_str, cooldown: datetime.timedelta) -> bool:
+    """
+    Devuelve True si ya pasó el cooldown o si nunca lo hizo (ultimo_str is None).
+    Falla de forma segura: si existe un valor pero no se puede parsear o verificar,
+    devuelve False para no conceder acciones sin cooldown válido.
+    """
+    if ultimo_str is None:
+        return True
+
+    ultimo = parse_utc_timestamp(ultimo_str)
+    if ultimo is None:
+        return False
+
+    ahora = datetime.datetime.now(datetime.timezone.utc)
+    return (ahora - ultimo) >= cooldown
+
+
+def _restante(ultimo_str, cooldown: datetime.timedelta) -> str | None:
+    """Devuelve string con el tiempo restante para el cooldown."""
+    if ultimo_str is None:
+        return None
+
+    ultimo = parse_utc_timestamp(ultimo_str)
+    if ultimo is None:
+        return None
+
+    ahora = datetime.datetime.now(datetime.timezone.utc)
+    diff = cooldown - (ahora - ultimo)
+    if diff.total_seconds() <= 0:
+        return None
+
+    horas = int(diff.total_seconds() // 3600)
+    minutos = int((diff.total_seconds() % 3600) // 60)
+    return f"{horas}h {minutos}m"
+
+
+# ============ HELPERS ============
+async def _perfil(user_id: int, username: str | None):
+    """Trae balance + cooldowns en una sola consulta asíncrona no bloqueante."""
+    info = await async_obtener_o_crear_usuario(user_id, username)
+    clean_username = username or f"user_{user_id}"
+    try:
+        res = await async_ejecutar(
+            supabase.table("usuarios").select("*").eq("telegram_id", user_id)
+        )
         if res.data:
             row = res.data[0]
             return {
-                "username": row.get("username", username),
+                "username": row.get("username", clean_username),
                 "balance": row.get("balance", 0),
                 "ultima_recarga": row.get("ultima_recarga"),
                 "ultimo_robo": row.get("ultimo_robo"),
                 "pollos_ganados": row.get("pollos_ganados", 0),
             }
     except Exception as e:
-        logger.error(f"Error en _perfil: {e}")
+        logger.error(f"Error en _perfil para user_id {user_id}: {e}")
+
     return {
-        "username": username,
+        "username": clean_username,
         "balance": info.get("balance", 0),
         "ultima_recarga": None,
         "ultimo_robo": None,
@@ -45,52 +106,33 @@ def _perfil(user_id, username):
     }
 
 
-def _puede_hacer(ultimo_str, cooldown):
-    """Devuelve True si ya pasó el cooldown."""
-    if not ultimo_str:
-        return True
-    try:
-        ultimo = datetime.fromisoformat(ultimo_str)
-        return (datetime.utcnow() - ultimo) >= cooldown
-    except (ValueError, TypeError):
-        return True
-
-
-def _restante(ultimo_str, cooldown):
-    """Devuelve string con el tiempo restante para el cooldown."""
-    if not ultimo_str:
-        return None
-    try:
-        ultimo = datetime.fromisoformat(ultimo_str)
-        diff = cooldown - (datetime.utcnow() - ultimo)
-        if diff.total_seconds() <= 0:
-            return None
-        horas = int(diff.total_seconds() // 3600)
-        minutos = int((diff.total_seconds() % 3600) // 60)
-        return f"{horas}h {minutos}m"
-    except (ValueError, TypeError):
-        return None
-
-
 # ============ TRABAJAR (cada 8h) ============
 async def trabajar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user = update.effective_user
-        info = _perfil(user.id, user.username)
-        m = obtener_moneda()
+        info = await _perfil(user.id, user.username)
+        m = await async_obtener_moneda()
 
-        if not _puede_hacer(info["ultima_recarga"], COOLDOWN_TRABAJAR):
-            restante = _restante(info["ultima_recarga"], COOLDOWN_TRABAJAR)
-            await update.message.reply_text(
-                f"⏳ Ya trabajaste. Vuelve en {restante}."
-            )
+        if not _puede_hacer(info.get("ultima_recarga"), COOLDOWN_TRABAJAR):
+            restante = _restante(info.get("ultima_recarga"), COOLDOWN_TRABAJAR)
+            tiempo_msg = f" Vuelve en {restante}." if restante else " Vuelve más tarde."
+            await update.message.reply_text(f"⏳ Ya trabajaste.{tiempo_msg}")
             return
 
         paga = random.randint(80, 250)
-        nuevo = actualizar_saldo(user.id, paga, es_ganancia=True)
-        supabase.table("usuarios").update(
-            {"ultima_recarga": datetime.utcnow().isoformat()}
-        ).eq("telegram_id", user.id).execute()
+        ahora_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+        # Registrar cooldown primero
+        try:
+            await async_ejecutar(
+                supabase.table("usuarios").update({"ultima_recarga": ahora_iso}).eq("telegram_id", user.id)
+            )
+        except Exception as e_ts:
+            logger.error(f"Error guardando ultima_recarga para {user.id}: {e_ts}")
+            await update.message.reply_text("❌ Error al registrar tu turno de trabajo. Inténtalo más tarde.")
+            return
+
+        nuevo = await async_actualizar_saldo(user.id, paga, es_ganancia=True)
 
         frases = [
             "Le lavaste el auto al jefe 👔",
@@ -102,13 +144,21 @@ async def trabajar(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Cuidaste al perro del vecino 🐕",
         ]
         frase = random.choice(frases)
-        await update.message.reply_text(
-            f"💼 {frase}\n\nGanaste {paga} {m}.\nSaldo actual: {nuevo} {m}"
-        )
+
+        try:
+            await update.message.reply_text(
+                f"💼 {frase}\n\nGanaste {paga} {m}.\nSaldo actual: {nuevo} {m}"
+            )
+        except TelegramError as e_tg:
+            logger.error(f"Error enviando mensaje de trabajar a {user.id}: {e_tg}")
 
     except Exception as e:
         logger.error(f"Error en trabajar: {e}")
-        await update.message.reply_text("❌ Error al trabajar. Inténtalo más tarde.")
+        try:
+            await update.message.reply_text("❌ Error al trabajar. Inténtalo más tarde.")
+        except Exception:
+            pass
+
 
 # ============ CRIMEN (cada 4h, sin reply) ============
 CRIMENES = [
@@ -125,17 +175,27 @@ CRIMENES = [
     ("clonar tarjetas 💳",         "te quedaron 50 lucas",    "el banco congeló tu cuenta",        180, 500,  90, 200),
 ]
 
+
 async def crimen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user = update.effective_user
-        info = _perfil(user.id, user.username)
-        m = obtener_moneda()
+        info = await _perfil(user.id, user.username)
+        m = await async_obtener_moneda()
 
-        if not _puede_hacer(info["ultimo_robo"], COOLDOWN_CRIMEN):
-            restante = _restante(info["ultimo_robo"], COOLDOWN_CRIMEN)
-            await update.message.reply_text(
-                f"⏳ La policía te vigila. Vuelve en {restante}."
+        if not _puede_hacer(info.get("ultimo_robo"), COOLDOWN_CRIMEN):
+            restante = _restante(info.get("ultimo_robo"), COOLDOWN_CRIMEN)
+            tiempo_msg = f" Vuelve en {restante}." if restante else " Vuelve más tarde."
+            await update.message.reply_text(f"⏳ La policía te vigila.{tiempo_msg}")
+            return
+
+        ahora_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        try:
+            await async_ejecutar(
+                supabase.table("usuarios").update({"ultimo_robo": ahora_iso}).eq("telegram_id", user.id)
             )
+        except Exception as e_ts:
+            logger.error(f"Error guardando ultimo_robo para {user.id}: {e_ts}")
+            await update.message.reply_text("❌ Error al planear el crimen. Inténtalo más tarde.")
             return
 
         accion, exito_tpl, fallo_tpl, g_min, g_max, p_min, p_max = random.choice(CRIMENES)
@@ -143,40 +203,44 @@ async def crimen(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if exito:
             ganancia = random.randint(g_min, g_max)
-            nuevo = actualizar_saldo(user.id, ganancia, es_ganancia=True)
-            await update.message.reply_text(
-                f"🦹 <b>Intento: {accion}</b>\n\n"
-                f"✅ {exito_tpl} y ganaste {ganancia} {m}.\n"
-                f"Saldo actual: {nuevo} {m}",
-                parse_mode="HTML",
-            )
+            nuevo = await async_actualizar_saldo(user.id, ganancia, es_ganancia=True)
+            try:
+                await update.message.reply_text(
+                    f"🦹 <b>Intento: {accion}</b>\n\n"
+                    f"✅ {exito_tpl} y ganaste {ganancia} {m}.\n"
+                    f"Saldo actual: {nuevo} {m}",
+                    parse_mode="HTML",
+                )
+            except TelegramError as e_tg:
+                logger.error(f"Error enviando mensaje de crimen exitoso a {user.id}: {e_tg}")
         else:
             multa = random.randint(p_min, p_max)
-            # Si no le alcanza para pagar la multa, queda en 0
             saldo_actual = info["balance"]
             multa_real = min(multa, saldo_actual)
-            actualizar_saldo(user.id, multa_real, es_ganancia=False)
-            await update.message.reply_text(
-                f"🦹 <b>Intento: {accion}</b>\n\n"
-                f"❌ {fallo_tpl}. Pagaste {multa_real} {m} de multa.\n"
-                f"Saldo actual: {max(0, saldo_actual - multa_real)} {m}",
-                parse_mode="HTML",
-            )
-
-        supabase.table("usuarios").update(
-            {"ultimo_robo": datetime.utcnow().isoformat()}
-        ).eq("telegram_id", user.id).execute()
+            await async_actualizar_saldo(user.id, multa_real, es_ganancia=False)
+            try:
+                await update.message.reply_text(
+                    f"🦹 <b>Intento: {accion}</b>\n\n"
+                    f"❌ {fallo_tpl}. Pagaste {multa_real} {m} de multa.\n"
+                    f"Saldo actual: {max(0, saldo_actual - multa_real)} {m}",
+                    parse_mode="HTML",
+                )
+            except TelegramError as e_tg:
+                logger.error(f"Error enviando mensaje de crimen fallido a {user.id}: {e_tg}")
 
     except Exception as e:
         logger.error(f"Error en crimen: {e}")
-        await update.message.reply_text("❌ Error en el crimen.")
+        try:
+            await update.message.reply_text("❌ Error en el crimen.")
+        except Exception:
+            pass
 
 
 # ============ RULETA (rusa) ============
 async def ruleta(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user = update.effective_user
-        m = obtener_moneda()
+        m = await async_obtener_moneda()
 
         if not context.args or len(context.args) < 2:
             await update.message.reply_text(
@@ -200,14 +264,14 @@ async def ruleta(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❌ Color inválido. Usa: rojo, negro o verde.")
             return
 
-        info = _perfil(user.id, user.username)
+        info = await _perfil(user.id, user.username)
         if info["balance"] < apuesta:
             await update.message.reply_text(
                 f"❌ No te alcanza. Saldo: {info['balance']} {m}."
             )
             return
 
-        # Resultado: 0-14 rojo, 15-29 negro, 30 verde (1/30)
+        # Resultado: 0-14 rojo, 15-29 negro, 30 verde (1/31)
         n = random.randint(0, 30)
         if n < 15:
             color_real = "rojo"
@@ -222,15 +286,14 @@ async def ruleta(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if color == color_real:
             multiplicador = 14 if color_real == "verde" else 2
             premio = apuesta * multiplicador
-            nuevo = actualizar_saldo(user.id, premio, es_ganancia=True)
-            # Sumamos la apuesta que ya se restó mentalmente (en realidad no se resta, se gana el premio entero)
+            nuevo = await async_actualizar_saldo(user.id, premio, es_ganancia=True)
             await update.message.reply_text(
                 f"🎉 ¡Acertaste! Salió {emoji} {color_real}.\n"
                 f"Ganaste {premio} {m}. Saldo: {nuevo} {m}"
             )
         else:
-            actualizar_saldo(user.id, apuesta, es_ganancia=False)
-            info = _perfil(user.id, user.username)
+            await async_actualizar_saldo(user.id, apuesta, es_ganancia=False)
+            info = await _perfil(user.id, user.username)
             await update.message.reply_text(
                 f"💀 Salió {emoji} {color_real}. Perdiste {apuesta} {m}.\n"
                 f"Saldo: {info['balance']} {m}"
@@ -238,14 +301,17 @@ async def ruleta(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         logger.error(f"Error en ruleta: {e}")
-        await update.message.reply_text("❌ Error en la ruleta.")
+        try:
+            await update.message.reply_text("❌ Error en la ruleta.")
+        except Exception:
+            pass
 
 
 # ============ ROLL (eliges número) ============
 async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user = update.effective_user
-        m = obtener_moneda()
+        m = await async_obtener_moneda()
 
         if not context.args or len(context.args) < 2:
             await update.message.reply_text(
@@ -268,7 +334,7 @@ async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"❌ Apuesta mínima: {APUESTA_MINIMA} {m}.")
             return
 
-        info = _perfil(user.id, user.username)
+        info = await _perfil(user.id, user.username)
         if info["balance"] < apuesta:
             await update.message.reply_text(
                 f"❌ No te alcanza. Saldo: {info['balance']} {m}."
@@ -278,15 +344,15 @@ async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
         dado = random.randint(1, 6)
         if dado == eleccion:
             premio = int(apuesta * 1.5)
-            nuevo = actualizar_saldo(user.id, premio, es_ganancia=True)
+            nuevo = await async_actualizar_saldo(user.id, premio, es_ganancia=True)
             await update.message.reply_text(
                 f"🎲 Sacaste <b>{dado}</b>. ¡Acertaste!\n"
                 f"Ganaste {premio} {m}. Saldo: {nuevo} {m}",
                 parse_mode="HTML",
             )
         else:
-            actualizar_saldo(user.id, apuesta, es_ganancia=False)
-            info = _perfil(user.id, user.username)
+            await async_actualizar_saldo(user.id, apuesta, es_ganancia=False)
+            info = await _perfil(user.id, user.username)
             await update.message.reply_text(
                 f"🎲 Sacaste <b>{dado}</b>. Apostaste al {eleccion}.\n"
                 f"Perdiste {apuesta} {m}. Saldo: {info['balance']} {m}",
@@ -295,15 +361,19 @@ async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         logger.error(f"Error en roll: {e}")
-        await update.message.reply_text("❌ Error en el dado.")
+        try:
+            await update.message.reply_text("❌ Error en el dado.")
+        except Exception:
+            pass
+
 
 # ============ COCK FIGHT (pelea de gallos) ============
 async def cock_fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Inicia una pelea. Pone un callback con el resultado."""
     try:
         user = update.effective_user
-        info = _perfil(user.id, user.username)
-        m = obtener_moneda()
+        info = await _perfil(user.id, user.username)
+        m = await async_obtener_moneda()
 
         if not context.args:
             await update.message.reply_text("🐓 Uso: /cock_fight <cantidad>")
@@ -338,8 +408,6 @@ async def cock_fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )]
             for g in gallos
         ]
-        # Truco: la opción del ganador está marcada; el jugador "elige" y si acierta gana.
-        # Para hacerlo simple, le decimos cuál ganó después.
         await update.message.reply_text(
             "🐓 <b>¡Pelea de gallos!</b>\n"
             "Mira los stats y espera el resultado...",
@@ -349,7 +417,10 @@ async def cock_fight(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         logger.error(f"Error en cock_fight: {e}")
-        await update.message.reply_text("❌ Error iniciando la pelea.")
+        try:
+            await update.message.reply_text("❌ Error iniciando la pelea.")
+        except Exception:
+            pass
 
 
 # ============ CALLBACK HANDLER ============
@@ -370,19 +441,18 @@ async def manejar_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.answer("Esta pelea no es tuya.", show_alert=True)
             return
 
-        m = obtener_moneda()
-        # En este diseño simple, si presionas el ganador, ganas.
-        # Si presionas otro, pierdes. (El usuario ve cuál es el fuerte por los stats).
-        # Para que sea justo sin trampas, lo hacemos 50/50 al presionar.
+        m = await async_obtener_moneda()
         if random.random() < 0.5:
             premio = apuesta * 2
-            nuevo = actualizar_saldo(user_id, premio, es_ganancia=True)
+            nuevo = await async_actualizar_saldo(user_id, premio, es_ganancia=True)
             try:
-                res = supabase.table("usuarios").select("pollos_ganados").eq("telegram_id", user_id).execute()
+                res = await async_ejecutar(
+                    supabase.table("usuarios").select("pollos_ganados").eq("telegram_id", user_id)
+                )
                 actual = res.data[0].get("pollos_ganados", 0) if res.data else 0
-                supabase.table("usuarios").update(
-                    {"pollos_ganados": actual + 1}
-                ).eq("telegram_id", user_id).execute()
+                await async_ejecutar(
+                    supabase.table("usuarios").update({"pollos_ganados": actual + 1}).eq("telegram_id", user_id)
+                )
             except Exception as e:
                 logger.error(f"Error actualizando pollos_ganados: {e}")
 
@@ -391,8 +461,8 @@ async def manejar_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"Premio: {premio} {m}. Saldo: {nuevo} {m}"
             )
         else:
-            actualizar_saldo(user_id, apuesta, es_ganancia=False)
-            info = _perfil(user_id, None)
+            await async_actualizar_saldo(user_id, apuesta, es_ganancia=False)
+            info = await _perfil(user_id, None)
             await query.edit_message_text(
                 f"🐓 Tu gallo perdió.\n"
                 f"Perdiste {apuesta} {m}. Saldo: {info['balance']} {m}"

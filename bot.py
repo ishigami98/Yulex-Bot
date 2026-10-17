@@ -1,15 +1,25 @@
 import os
+import logging
 import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 import uvicorn
 
+# Configuración de Logging estructurado (sin exponer datos confidenciales)
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+)
+logger = logging.getLogger(__name__)
+
 # Extensiones y manejadores de python-telegram-bot v20+
+from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
     CallbackQueryHandler,
     MessageHandler,
+    ContextTypes,
     filters,
 )
 
@@ -41,6 +51,21 @@ from comandos.afk import set_afk, check_afk
 telegram_app = None
 
 
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Manejador global de errores para la Application de python-telegram-bot."""
+    logger.error(
+        f"Excepción capturada procesando update {getattr(update, 'update_id', 'N/A')}: {context.error}",
+        exc_info=context.error,
+    )
+    try:
+        if isinstance(update, Update) and update.effective_message:
+            await update.effective_message.reply_text(
+                "⚠️ Ocurrió un error inesperado al procesar tu solicitud. Inténtalo más tarde."
+            )
+    except Exception as send_err:
+        logger.error(f"No se pudo notificar el error al usuario: {send_err}")
+
+
 def crear_aplicacion() -> Application:
     """
     Construye la instancia de Application (python-telegram-bot v20+)
@@ -51,6 +76,9 @@ def crear_aplicacion() -> Application:
         raise ValueError("❌ ERROR CRÍTICO: No se encontró la variable de entorno TELEGRAM_TOKEN")
 
     app = Application.builder().token(token).build()
+
+    # === MANEJADOR GLOBAL DE ERRORES ===
+    app.add_error_handler(error_handler)
 
     # === COMANDOS GENERALES ===
     app.add_handler(CommandHandler("start", start))

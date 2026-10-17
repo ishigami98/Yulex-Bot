@@ -1,4 +1,5 @@
 import os
+import asyncio
 from supabase import create_client
 
 # Carga las variables desde el entorno de Render
@@ -31,12 +32,12 @@ def obtener_moneda():
     return "🪙"  # fallback
 
 
-
-def obtener_id_por_username(username):
-    """Busca el telegram_id de un usuario por su @username."""
-    clean = username.replace("@", "").lower()
+def obtener_id_por_username(username: str):
+    """Busca el telegram_id de un usuario por su @username (búsqueda insensible a mayúsculas/minúsculas)."""
+    clean = username.replace("@", "").strip()
     try:
-        res = supabase.table("usuarios").select("telegram_id").eq("username", clean).execute()
+        # ilike realiza coincidencia insensible a mayúsculas/minúsculas en PostgreSQL
+        res = supabase.table("usuarios").select("telegram_id").ilike("username", clean).execute()
         if res.data:
             return res.data[0]["telegram_id"]
     except Exception as e:
@@ -75,3 +76,25 @@ def actualizar_saldo(telegram_id, cantidad, es_ganancia=True):
     except Exception as e:
         print(f"Error en actualizar_saldo: {e}")
         return None
+
+
+# ============ WRAPPERS ASÍNCRONOS (Evitan bloquear el Event Loop) ============
+async def async_ejecutar(query):
+    """Ejecuta una consulta de Supabase (.execute()) en un hilo de trabajo con asyncio.to_thread."""
+    return await asyncio.to_thread(query.execute)
+
+
+async def async_obtener_moneda():
+    return await asyncio.to_thread(obtener_moneda)
+
+
+async def async_obtener_id_por_username(username: str):
+    return await asyncio.to_thread(obtener_id_por_username, username)
+
+
+async def async_obtener_o_crear_usuario(telegram_id: int, username: str):
+    return await asyncio.to_thread(obtener_o_crear_usuario, telegram_id, username)
+
+
+async def async_actualizar_saldo(telegram_id: int, cantidad: int, es_ganancia: bool = True):
+    return await asyncio.to_thread(actualizar_saldo, telegram_id, cantidad, es_ganancia)
